@@ -3121,6 +3121,15 @@ function openVerifikasiModal(lahanId) {
         document.getElementById('koorId').value = '';
         document.getElementById('modalKoorTitle').innerText = 'Tambah Koordinator Baru';
         window.SIPETA.initDropdownWilayah('koor');
+        
+        var selTrader = document.getElementById('koorTrader');
+        if (currentUser && currentUser.traderId && currentUser.role === 'FIELD_FORCE') {
+          selTrader.value = currentUser.traderId;
+          selTrader.disabled = true; // Kunci pilihan ke trader bawaan login FF
+        } else {
+          selTrader.disabled = false;
+        }
+
         document.getElementById('modalKoordinator').classList.remove('hidden');
       }
 
@@ -3128,7 +3137,15 @@ function openVerifikasiModal(lahanId) {
         var k = localStore.koordinators.find(function(item) { return item.id === id; });
         if (!k) return;
         document.getElementById('koorId').value = k.id;
-        document.getElementById('koorTrader').value = k.traderId;
+        
+        var selTrader = document.getElementById('koorTrader');
+        selTrader.value = k.traderId;
+        if (currentUser && currentUser.role === 'FIELD_FORCE') {
+          selTrader.disabled = true;
+        } else {
+          selTrader.disabled = false;
+        }
+
         document.getElementById('koorNama').value = k.nama;
         document.getElementById('koorKodeSeri').value = k.kodeSeri;
         document.getElementById('koorNIK').value = k.nik;
