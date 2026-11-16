@@ -130,7 +130,7 @@
 
   // ---------- Core call logic ----------
   function enqueue(id, fn, args) {
-    return outboxPut({ id: id, fn: fn, args: args, createdAt: Date.now(), attempts: 0, status: 'pending' })
+    return outboxPut({ id: id, fn: fn, args: args, createdAt: Date.now(), attempts: 0, status: 'pending', owner: (typeof CFG.owner === 'function' ? CFG.owner() : '') })
       .then(function () { announce('queued', { id: id, fn: fn, args: args }); updateBadge(); setTimeout(flush, 0); });
   }
 
@@ -211,8 +211,22 @@
       todo.forEach(function (it) {
         chain = chain.then(function () {
           if (stop) return;
+          var pre = CFG.beforeReplay ? CFG.beforeReplay(it) : null;
+          if (pre && pre.action === 'stop') { stop = true; if (pre.reason) announce('sync-blocked', pre); return; }
+          if (pre && pre.action === 'fail') {
+            it.status = 'failed'; it.error = pre.message || 'Gagal';
+            return outboxPut(it).then(function () { announce('sync-failed', it); });
+          }
           return post(it.fn, it.args, it.id).then(function (j) {
-            if (j && j.ok) { return outboxDelete(it.id).then(function () { announce('synced', it); }); }
+            if (j && j.ok) {
+              var v = CFG.afterReplay ? CFG.afterReplay(it, j) : { action: 'done' };
+              if (v && v.action === 'stop') { stop = true; announce('sync-blocked', v); return; }
+              if (v && v.action === 'fail') {
+                it.status = 'failed'; it.error = v.message || 'Ditolak server';
+                return outboxPut(it).then(function () { announce('sync-failed', it); });
+              }
+              return outboxDelete(it.id).then(function () { announce('synced', it); });
+            }
             it.status = 'failed'; it.error = (j && j.error) || 'Server error';
             return outboxPut(it).then(function () { announce('sync-failed', it); });
           }).catch(function (e) {
@@ -247,7 +261,8 @@
         badge.setAttribute('role', 'status');
         badge.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));' +
           'z-index:2147483647;padding:6px 14px;border-radius:999px;font:500 13px system-ui,sans-serif;' +
-          'background:#202124;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none';
+          'background:#202124;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+        badge.addEventListener('click', function () { if (CFG.onBadgeClick) CFG.onBadgeClick(); });
         document.body.appendChild(badge);
       }
       badge.textContent = parts.join(' · ');
@@ -314,6 +329,7 @@
         }));
       }).then(flush);
     },
+    discard: function (id) { return outboxDelete(id).then(updateBadge); },
     discardFailed: function () {
       return outboxAll().then(function (items) {
         return Promise.all(items.filter(function (i) { return i.status === 'failed'; }).map(function (i) { return outboxDelete(i.id); }));

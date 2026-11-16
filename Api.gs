@@ -23,10 +23,20 @@ const PWA_ALLOWED_FUNCTIONS = [
   'saveVerifikasiLahan',
 ];
 
-// Writes that must never run at the same time (same names as `queueable` in
-// pwa-config.js). Reads are not locked, so they stay fast.
+// Hanya fungsi yang TIDAK memakai LockService sendiri (sudah dicek terhadap Code.gs):
+// toggleStatusEntity, saveUser, saveTrader, savePenugasanPic.
+// JANGAN menambahkan saveKoordinator, savePetani, saveLahan, saveVerifikasiLahan:
+// keempatnya sudah mengunci sendiri, dan kunci ganda membuatnya menunggu lalu gagal
+// dengan pesan "Sistem sibuk".
 const PWA_SERIALIZED_FUNCTIONS = [
-  'savePetani', 'saveLahan', 'saveKoordinator', 'saveUser', 'saveTrader', 'savePenugasanPic', 'toggleStatusEntity', 'saveVerifikasiLahan',
+  'toggleStatusEntity', 'saveUser', 'saveTrader', 'savePenugasanPic',
+];
+
+// Fungsi tulis: hasil sukses disimpan 6 jam menurut ID permintaan, supaya
+// pengiriman ulang dari antrean offline tidak menulis data dua kali.
+const PWA_WRITE_FUNCTIONS = [
+  'savePetani', 'saveLahan', 'saveKoordinator', 'toggleStatusEntity',
+  'saveUser', 'saveTrader', 'savePenugasanPic', 'saveVerifikasiLahan',
 ];
 
 // 2) Optional shared token. Set Script property PWA_TOKEN (Project Settings >
@@ -67,7 +77,7 @@ function pwaDispatch_(req) {
   // offline periods also dedupe inside the write function itself (store the id
   // in a column and skip if present).
   const cache = CacheService.getScriptCache();
-  const cacheKey = req.id ? 'pwa:' + req.id : null;
+  const cacheKey = (req.id && PWA_WRITE_FUNCTIONS.indexOf(req.fn) !== -1) ? 'pwa:' + req.id : null;
   if (cacheKey) {
     const hit = cache.get(cacheKey);
     if (hit) return JSON.parse(hit);
@@ -82,7 +92,9 @@ function pwaDispatch_(req) {
     if (typeof fn !== 'function') return { ok: false, error: 'Unknown function: ' + req.fn };
     const result = fn.apply(null, Array.isArray(req.args) ? req.args : []);
     const out = { ok: true, result: result === undefined ? null : result };
-    if (cacheKey) {
+    // Simpan hanya yang berhasil. Penolakan (success:false) tidak disimpan agar
+    // "Coba lagi" dari antrean benar-benar dijalankan ulang.
+    if (cacheKey && !(result && result.success === false)) {
       try { cache.put(cacheKey, JSON.stringify(out), 21600); } catch (e) { /* value too large: skip */ }
     }
     return out;

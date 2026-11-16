@@ -1669,6 +1669,16 @@
                 resolve({ success: true, data: payload });
                 break;
 
+              case 'saveVerifikasiLahan':
+                for (var vIdx = 0; vIdx < mockDB.lahan.length; vIdx++) {
+                  if (mockDB.lahan[vIdx].id === payload.id) {
+                    mockDB.lahan[vIdx] = Object.assign(mockDB.lahan[vIdx], payload);
+                    break;
+                  }
+                }
+                resolve({ success: true, data: payload });
+                break;
+
               default:
                 resolve({ success: false, message: 'Fungsi mock tidak dikenali: ' + functionName });
             }
@@ -1706,6 +1716,17 @@
       }
 
       function handleLogout() {
+        if (window.PWA && PWA.getOutbox) {
+          PWA.getOutbox().then(function(items) {
+            if (items.length && !confirm('Ada ' + items.length + ' perubahan yang belum tersinkron. Data itu tetap tersimpan di perangkat dan akan dikirim setelah Anda login lagi. Tetap keluar?')) return;
+            doLogout();
+          }).catch(doLogout);
+        } else {
+          doLogout();
+        }
+      }
+
+      function doLogout() {
         showFullPageLoading('Keluar dari sistem...');
         gasRun('destroySession', sessionToken).finally(function() {
           hideFullPageLoading();
@@ -1733,6 +1754,7 @@
       }
 
       function onLoginSuccess() {
+        if (window.PWA && PWA.flush) { setTimeout(function() { PWA.flush(); }, 0); }
         document.getElementById('viewLogin').classList.add('hidden');
         document.getElementById('viewApp').classList.remove('hidden');
 
@@ -1819,6 +1841,160 @@
         traders: [], koordinators: [], petani: [], lahan: [], users: [], picAssignments: []
       };
 
+      // 9b. MODE OFFLINE: ID sementara, tampilan gabungan, sinkronisasi antrean
+      function newTmpId() {
+        return 'TMP-' + ('000000' + Math.floor(Math.random() * 0xFFFFFF).toString(16)).slice(-6).toUpperCase();
+      }
+      var OFFLINE_SAVED_MSG = 'Tersimpan offline. Akan disinkronkan otomatis saat ada internet.';
+      var TMP_RE = /^TMP-[0-9A-F]{6}$/;
+
+      function offlineOverlay(data) {
+        if (!window.PWA || !PWA.getOutbox) return Promise.resolve(data);
+        return PWA.getOutbox().then(function(items) {
+          var pending = items.filter(function(i) { return i.status !== 'failed'; })
+            .sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+          if (!pending.length) return data;
+          var d = JSON.parse(JSON.stringify(data));
+          function copyInto(dst, src, skipStatus) {
+            Object.keys(src).forEach(function(k) {
+              if (k === 'id' || k === '_tmpId' || k === 'tandaTanganPetani' || k === 'tandaTanganFieldForce') return;
+              if (skipStatus && k === 'status') return;
+              dst[k] = src[k];
+            });
+          }
+          pending.forEach(function(it) {
+            var pl = (it.args && it.args[1]) || {};
+            var list = it.fn === 'savePetani' ? d.petani : (it.fn === 'saveLahan' || it.fn === 'saveVerifikasiLahan') ? d.lahan : it.fn === 'saveKoordinator' ? d.koordinators : null;
+            if (list) {
+              var row = pl.id ? list.filter(function(x) { return x.id === pl.id; })[0] : null;
+              if (row) {
+                copyInto(row, pl, it.fn === 'savePetani');
+              } else if (!pl.id && pl._tmpId) {
+                var n = {};
+                copyInto(n, pl, false);
+                n.id = pl._tmpId;
+                n._pending = true;
+                if (!n.status) n.status = 'AKTIF';
+                list.push(n);
+              }
+            } else if (it.fn === 'toggleStatusEntity') {
+              var l2 = d[pl.entityType] || [];
+              var r2 = l2.filter(function(x) { return x.id === pl.id; })[0];
+              if (r2) r2.status = pl.newStatus;
+            }
+          });
+          return d;
+        }).catch(function() { return data; });
+      }
+
+      function loadIdMap() { try { return JSON.parse(localStorage.getItem('sipeta_idmap') || '{}'); } catch (e) { return {}; } }
+      function saveIdMap(tmp, real) { var m = loadIdMap(); m[tmp] = real; try { localStorage.setItem('sipeta_idmap', JSON.stringify(m)); } catch (e) {} }
+
+      function remapArgs(v, map, state) {
+        if (typeof v === 'string') {
+          if (map[v]) return map[v];
+          if (TMP_RE.test(v)) state.unresolved = true;
+          return v;
+        }
+        if (Array.isArray(v)) return v.map(function(x) { return remapArgs(x, map, state); });
+        if (v && typeof v === 'object') {
+          var o = {};
+          Object.keys(v).forEach(function(k) { o[k] = (k === '_tmpId') ? v[k] : remapArgs(v[k], map, state); });
+          return o;
+        }
+        return v;
+      }
+
+      function describePending(it) {
+        var pl = (it.args && it.args[1]) || {};
+        var names = { savePetani: 'Petani', saveLahan: 'Lahan', saveKoordinator: 'Koordinator', toggleStatusEntity: 'Ubah status', saveVerifikasiLahan: 'Verifikasi lahan' };
+        var label = names[it.fn] || it.fn;
+        var what = pl.nama || pl.aliasLahan || (it.fn === 'saveVerifikasiLahan' ? (localStore.lahan.filter(function(x) { return x.id === pl.id; })[0] || {}).kodeLahan : '') || pl.id || '';
+        var kind = it.fn === 'saveVerifikasiLahan' ? '' : it.fn === 'toggleStatusEntity' ? (' → ' + (pl.newStatus || '')) : (pl.id && !TMP_RE.test(pl.id) ? ' (ubah)' : ' (baru)');
+        return label + kind + (what ? ': ' + what : '');
+      }
+
+      function openSyncPanel() {
+        PWA.getOutbox().then(function(items) {
+          var old = document.getElementById('syncPanel');
+          if (old) old.remove();
+          var el = document.createElement('div');
+          el.id = 'syncPanel';
+          el.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center';
+          var rows = items.length ? items.map(function(it) {
+            var failed = it.status === 'failed';
+            return '<div style="padding:10px 0;border-bottom:1px solid #e5e7eb">' +
+              '<div style="font-weight:600;font-size:14px">' + escapeHTML(describePending(it)) + '</div>' +
+              '<div style="font-size:12px;color:' + (failed ? '#b3261e' : '#6b7280') + '">' + (failed ? 'Gagal: ' + escapeHTML(it.error || 'ditolak server') : 'Menunggu sinkronisasi') + '</div>' +
+              (failed ? '<button data-discard="' + escapeHTML(it.id) + '" style="margin-top:4px;font-size:12px;color:#b3261e;text-decoration:underline">Buang data ini</button>' : '') +
+              '</div>';
+          }).join('') : '<div style="padding:16px 0;color:#6b7280;font-size:14px">Tidak ada antrean. Semua data sudah tersinkron.</div>';
+          el.innerHTML = '<div style="background:#fff;color:#111;width:100%;max-width:520px;max-height:80vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:16px">Antrean Sinkronisasi</strong><button data-act="close" style="font-size:22px;line-height:1">&times;</button></div>' +
+            rows +
+            '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+            '<button data-act="flush" style="padding:8px 12px;border-radius:8px;background:#059669;color:#fff;font-size:13px">Sinkronkan sekarang</button>' +
+            '<button data-act="retry" style="padding:8px 12px;border-radius:8px;background:#e5e7eb;font-size:13px">Coba lagi yang gagal</button>' +
+            '</div></div>';
+          el.addEventListener('click', function(ev) {
+            var t = ev.target;
+            if (t === el || (t.dataset && t.dataset.act === 'close')) { el.remove(); return; }
+            if (t.dataset && t.dataset.act === 'flush') { PWA.flush().then(function() { openSyncPanel(); }); return; }
+            if (t.dataset && t.dataset.act === 'retry') { PWA.retryFailed().then(function() { openSyncPanel(); }); return; }
+            if (t.dataset && t.dataset.discard) { PWA.discard(t.dataset.discard).then(function() { openSyncPanel(); loadAllData(); }); }
+          });
+          document.body.appendChild(el);
+        });
+      }
+
+      (function initOfflineSync() {
+        if (!window.PWA || !PWA.config) return;
+        var C = PWA.config;
+        C.owner = function() { return currentUser ? currentUser.username : ''; };
+        C.onBadgeClick = openSyncPanel;
+
+        // Dipanggil sebelum tiap item antrean dikirim ulang: token terbaru + ganti ID sementara.
+        C.beforeReplay = function(it) {
+          if (!sessionToken) return { action: 'stop' };
+          if (it.owner && currentUser && it.owner !== currentUser.username) return { action: 'stop', reason: 'owner', owner: it.owner };
+          var state = { unresolved: false };
+          var map = loadIdMap();
+          it.args = (it.args || []).map(function(a, i) { return i === 0 ? sessionToken : remapArgs(a, map, state); });
+          if (state.unresolved) return { action: 'fail', message: 'Bergantung pada data yang gagal disinkronkan. Buang data ini atau perbaiki data induknya.' };
+          return null;
+        };
+
+        // Dipanggil setelah server menjawab: jawaban {success:false} bukan sukses.
+        C.afterReplay = function(it, j) {
+          var r = j && j.result;
+          if (r && r.sessionExpired) return { action: 'stop', reason: 'session' };
+          if (r && r.success === false) return { action: 'fail', message: r.message || 'Ditolak server.' };
+          var pl = (it.args && it.args[1]) || {};
+          if (pl._tmpId && r && r.data && r.data.id) saveIdMap(pl._tmpId, r.data.id);
+          return { action: 'done' };
+        };
+
+        var reloadTimer = null;
+        function scheduleReload() {
+          clearTimeout(reloadTimer);
+          reloadTimer = setTimeout(function() { if (sessionToken) loadAllData(); }, 600);
+        }
+        window.addEventListener('pwa:synced', function() {
+          showToast('Data offline berhasil disinkronkan.', 'success');
+          scheduleReload();
+          PWA.getOutbox().then(function(items) { if (!items.length) { try { localStorage.removeItem('sipeta_idmap'); } catch (e) {} } });
+        });
+        window.addEventListener('pwa:sync-failed', function(ev) {
+          showToast('Ada data yang gagal disinkronkan. Ketuk indikator di bawah untuk melihat.', 'error');
+          scheduleReload();
+        });
+        window.addEventListener('pwa:sync-blocked', function(ev) {
+          var d = ev.detail || {};
+          if (d.reason === 'session') handleSessionExpired();
+          else if (d.reason === 'owner') showToast('Ada data offline milik "' + d.owner + '". Login dengan akun itu untuk menyinkronkannya.', 'warning');
+        });
+      })();
+
       function loadAllData() {
         gasRun('getAppData', sessionToken).then(function(res) {
           if (res.sessionExpired) {
@@ -1826,9 +2002,11 @@
             return;
           }
           if (res.success) {
-            localStore = res.data;
-            populateFilterDropdowns();
-            renderCurrentPage();
+            offlineOverlay(res.data).then(function(merged) {
+              localStore = merged;
+              populateFilterDropdowns();
+              renderCurrentPage();
+            });
           } else {
             showToast(res.message, 'error');
           }
@@ -2586,84 +2764,7 @@ function openVerifikasiModal(lahanId) {
             return;
           }
           if (res.success) {
-            showToast('Lahan berhasil diverifikasi.', 'success');
-            closeModal('modalVerifikasi');
-            loadAllData();
-          } else {
-            showToast(res.message, 'error');
-          }
-        }).catch(function(err) {
-          btn.disabled = false;
-          btn.innerText = 'Simpan Verifikasi';
-          showToast(err.message, 'error');
-        });
-      }
-
-function openVerifikasiModal(lahanId) {
-        var l = localStore.lahan.find(function(item) { return item.id === lahanId; });
-        if (!l) return;
-
-        document.getElementById('formVerifikasi').reset();
-        clearCanvas('canvasPicSign');
-
-        document.getElementById('verifLahanId').value = l.id;
-        document.getElementById('verifKodeLahanLabel').innerText = l.kodeLahan + ' - ' + l.aliasLahan;
-        document.getElementById('verifKoordinat').value = l.koordinat || '';
-        document.getElementById('verifIrigasi').value = l.irigasi || '';
-        document.getElementById('verifTekstur').value = l.teksturTanah || '';
-        document.getElementById('verifLereng').value = l.arahLereng || '';
-        document.getElementById('verifKemiringan').value = l.kemiringan || '';
-        document.getElementById('verifKetinggian').value = l.ketinggian || '';
-
-        // Tampilkan canvas sign jika sudah ada
-        if (l.tandaTanganPic && l.tandaTanganPic.length > 50) {
-          var canvas = document.getElementById('canvasPicSign');
-          var ctx = canvas.getContext('2d');
-          var img = new Image();
-          img.onload = function() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0);
-          };
-          img.src = l.tandaTanganPic;
-        }
-
-        document.getElementById('modalVerifikasi').classList.remove('hidden');
-      }
-
-      function saveVerifikasiLahan() {
-        var id = document.getElementById('verifLahanId').value;
-        var koordinat = document.getElementById('verifKoordinat').value.trim();
-        var irigasi = document.getElementById('verifIrigasi').value;
-        var teksturTanah = document.getElementById('verifTekstur').value;
-        var arahLereng = document.getElementById('verifLereng').value;
-        var kemiringan = document.getElementById('verifKemiringan').value;
-        var ketinggian = document.getElementById('verifKetinggian').value.trim();
-        var canvasPic = document.getElementById('canvasPicSign');
-
-        var payload = {
-          id: id,
-          koordinat: koordinat,
-          irigasi: irigasi,
-          teksturTanah: teksturTanah,
-          arahLereng: arahLereng,
-          kemiringan: kemiringan,
-          ketinggian: ketinggian,
-          tandaTanganPic: canvasPic.toDataURL()
-        };
-
-        var btn = document.getElementById('btnSaveVerifikasi');
-        btn.disabled = true;
-        btn.innerText = 'Menyimpan...';
-
-        gasRun('saveVerifikasiLahan', sessionToken, payload).then(function(res) {
-          btn.disabled = false;
-          btn.innerText = 'Simpan Verifikasi';
-          if (res.sessionExpired) {
-            handleSessionExpired();
-            return;
-          }
-          if (res.success) {
-            showToast('Lahan berhasil diverifikasi.', 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Lahan berhasil diverifikasi.', 'success');
             closeModal('modalVerifikasi');
             loadAllData();
           } else {
@@ -2705,6 +2806,7 @@ function openVerifikasiModal(lahanId) {
         btn.disabled = true;
         btn.innerText = 'Menyimpan...';
 
+        if (!payload.id) payload._tmpId = newTmpId();
         gasRun('saveKoordinator', sessionToken, payload).then(function(res) {
           btn.disabled = false;
           btn.innerText = 'Simpan Data';
@@ -2713,7 +2815,7 @@ function openVerifikasiModal(lahanId) {
             return;
           }
           if (res.success) {
-            showToast('Data Koordinator berhasil disimpan.', 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Data Koordinator berhasil disimpan.', 'success');
             closeModal('modalKoordinator');
             loadAllData();
           } else {
@@ -2759,6 +2861,7 @@ function openVerifikasiModal(lahanId) {
         btn.disabled = true;
         btn.innerText = 'Memproses...';
 
+        if (!payload.id) payload._tmpId = newTmpId();
         gasRun('savePetani', sessionToken, payload).then(function(res) {
           btn.disabled = false;
           btn.innerText = 'Simpan Registrasi';
@@ -2767,7 +2870,7 @@ function openVerifikasiModal(lahanId) {
             return;
           }
           if (res.success) {
-            showToast('Petani mitra berhasil diregistrasi dengan ID: ' + (res.data.id || id), 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Petani mitra berhasil diregistrasi dengan ID: ' + (res.data.id || id), 'success');
             closeModal('modalPetani');
             loadAllData();
           } else {
@@ -2820,6 +2923,7 @@ function openVerifikasiModal(lahanId) {
         btn.disabled = true;
         btn.innerText = 'Menyimpan...';
 
+        if (!payload.id) payload._tmpId = newTmpId();
         gasRun('saveLahan', sessionToken, payload).then(function(res) {
           btn.disabled = false;
           btn.innerText = 'Simpan Lahan';
@@ -2828,7 +2932,7 @@ function openVerifikasiModal(lahanId) {
             return;
           }
           if (res.success) {
-            showToast('Data Lahan berhasil disimpan dengan kode: ' + kodeLahan, 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Data Lahan berhasil disimpan dengan kode: ' + kodeLahan, 'success');
             closeModal('modalLahan');
             loadAllData();
           } else {
@@ -2850,7 +2954,7 @@ function openVerifikasiModal(lahanId) {
             return;
           }
           if (res.success) {
-            showToast('Status berhasil diperbarui.', 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Status berhasil diperbarui.', 'success');
             loadAllData();
           } else {
             showToast(res.message, 'error');

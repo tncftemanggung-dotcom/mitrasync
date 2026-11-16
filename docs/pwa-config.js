@@ -7,13 +7,16 @@ window.PWA_CONFIG = {
   // it is evaluated each time a request is sent, including replays from the outbox.
   token: '',
   // Server functions that WRITE: kept in the outbox when offline, replayed in order
-  queueable: [],
+  queueable: ["savePetani", "saveLahan", "saveKoordinator", "toggleStatusEntity", "saveVerifikasiLahan"],
   // Server functions that READ: last good answer is served when offline
   cacheable: ["getAppData"],
   // What the page's success handler receives when a write was queued instead of sent.
   // Make it look like the real return value of that function so the UI keeps working.
   queuedResult: function (fn, args) {
-    return { queued: true };
+    var p = args[1] || {};
+    var d = Object.assign({}, p);
+    if (!d.id && p._tmpId) d.id = p._tmpId;
+    return { success: true, queued: true, data: d };
   },
   labels: {"offline": "Offline", "pending": "menunggu", "failed": "gagal", "syncing": "Menyinkronkan…"}
 };

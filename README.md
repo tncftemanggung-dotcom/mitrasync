@@ -43,7 +43,7 @@ HP / Browser  ──►  GitHub Pages (tampilan PWA: HTML, manifest, service wor
 | `docs/index.html` | Tampilan aplikasi (hasil build) |
 | `docs/manifest.json` | Nama, ikon, warna aplikasi |
 | `docs/sw.js` | Service worker (cache offline) |
-| `docs/gas-bridge.js` | Pengganti `google.script.run` berbasis `fetch` |
+| `docs/gas-bridge.js` | Pengganti `google.script.run` berbasis `fetch`, plus antrean offline |
 | `docs/pwa-config.js` | Pengaturan: alamat `/exec`, fungsi yang di-cache |
 | `docs/icons/` | Ikon 192, 512, maskable, apple-touch, favicon |
 | `Api.gs` | Router backend, **ditambahkan** ke proyek Apps Script |
@@ -74,10 +74,13 @@ Daftar fungsi yang diizinkan sudah terisi:
 const PWA_ALLOWED_FUNCTIONS = [
   'loginUser', 'destroySession', 'getAppData', 'saveKoordinator', 'savePetani', 'saveLahan',
   'toggleStatusEntity', 'saveUser', 'saveTrader', 'savePenugasanPic',
+  'saveVerifikasiLahan',
 ];
 ```
 
-> **Catatan `saveVerifikasiLahan`:** `Index.html` memanggil fungsi ini, tetapi fungsinya **tidak ada** di `Code.gs`. Fitur verifikasi lahan karena itu kemungkinan sudah tidak berjalan sebelum PWA. Jika Anda menambahkan fungsinya, tambahkan juga `'saveVerifikasiLahan'` ke `PWA_ALLOWED_FUNCTIONS` dan `PWA_SERIALIZED_FUNCTIONS`.
+> **Catatan penguncian:** `saveKoordinator`, `savePetani`, `saveLahan`, dan `saveVerifikasiLahan` sudah memakai `LockService` di dalam fungsinya, jadi sengaja **tidak** dimasukkan ke `PWA_SERIALIZED_FUNCTIONS`. Mengunci dua kali membuat simpan gagal dengan pesan "Sistem sibuk".
+>
+> **Catatan `saveVerifikasiLahan`:** pastikan fungsi ini hanya didefinisikan **sekali** di `Code.gs`. Jika ada dua definisi, Apps Script memakai yang terakhir dan yang pertama tidak pernah dijalankan.
 
 ### A2. Pastikan tidak ada `doPost` ganda
 
@@ -224,8 +227,9 @@ Lakukan urutan berikut pada perangkat sungguhan:
 
 1. **Online:** login, buka daftar petani/lahan, simpan satu data uji. Pastikan baris baru muncul di Google Sheets.
 2. **Cache data:** setelah data tampil, aktifkan **mode pesawat**, tutup aplikasi, buka lagi. Halaman harus tetap terbuka dan data terakhir masih tampil. Indikator **Offline** muncul.
-3. **Simpan saat offline:** akan gagal dengan pesan galat. Ini disengaja (lihat [Perilaku offline](#9-perilaku-offline)).
-4. **Logout:** cache data dibersihkan otomatis agar data tidak tertinggal di perangkat bersama.
+3. **Simpan saat offline:** tambah satu petani, lalu satu lahan untuk petani itu. Keduanya muncul di daftar dengan ID `TMP-...` dan indikator menampilkan `2 menunggu`.
+4. **Sinkron:** matikan mode pesawat. Dalam beberapa detik indikator hilang, ID berubah menjadi `TMG....`, dan baris baru muncul di Google Sheets. Lahan harus terhubung ke ID petani yang resmi.
+5. **Logout:** cache data dibersihkan otomatis agar data tidak tertinggal di perangkat bersama.
 
 Uji otomatis di komputer sebelum push (opsional):
 
@@ -249,7 +253,7 @@ python -m http.server 8000
 **Jika Anda mengubah tampilan (`docs/index.html`):**
 
 1. Edit file di repositori (atau ganti file yang di-upload).
-2. **Wajib naikkan versi cache** supaya aplikasi terpasang mengambil versi baru: buka `docs/sw.js` dan ubah nilai pada baris 2, `const VERSION = '829e1864e5';`, menjadi nilai baru apa saja (mis. `'v2'`, lalu `'v3'` pada update berikutnya).
+2. **Wajib naikkan versi cache** supaya aplikasi terpasang mengambil versi baru: buka `docs/sw.js` dan ubah nilai pada baris 2, `const VERSION = '...';`, menjadi nilai baru apa saja (mis. `'v2'`, lalu `'v3'` pada update berikutnya).
 3. Commit dan push.
 4. Pada perangkat pengguna, **tutup lalu buka aplikasi 2 kali**: service worker baru terpasang di latar saat peluncuran pertama dan aktif pada peluncuran berikutnya.
 
@@ -259,16 +263,48 @@ python -m http.server 8000
 
 ## 9. Perilaku offline
 
+Aplikasi bisa dipakai **tanpa internet** setelah login dan data pertama dimuat.
+
 | Fitur | Offline |
 |---|---|
 | Membuka aplikasi (tampilan, ikon, gaya) | Bisa |
 | Melihat data terakhir (`getAppData`) | Bisa, dari cache terakhir |
-| Login baru | Tidak bisa (perlu server) |
-| Simpan / ubah petani, lahan, koordinator, user, trader, PIC | **Tidak bisa** |
+| Tambah / ubah **petani**, **lahan**, **koordinator**, dan **verifikasi lahan** | Bisa, masuk antrean |
+| Ubah status aktif/nonaktif petani, lahan, koordinator | Bisa, masuk antrean |
+| Login, logout resmi | Tidak bisa (perlu server) |
+| Data pengguna (user), trader, penugasan PIC | Tidak bisa (tugas admin, wajib online) |
 
-Penulisan data sengaja **tidak** diantrekan offline karena server membuat sendiri ID, `Kode_Seri`, `Counter_Petani`, dan memvalidasi sesi (token berlaku 8 jam). Antrean offline berisiko menghasilkan nomor ganda atau data ditolak saat tersinkron. Bila kelak dibutuhkan input di lapangan tanpa sinyal, bagian ini perlu dirancang ulang.
+### Cara kerjanya
 
-Pustaka dari CDN (Tailwind, Font Awesome, font Google) baru tersimpan untuk offline **setelah aplikasi dibuka sekali dengan internet**.
+1. Saat offline, data yang disimpan masuk **antrean** di perangkat dan langsung tampil di daftar.
+2. Petani atau lahan baru memakai **ID sementara** seperti `TMP-3F2A91` sampai tersinkron.
+3. Saat internet kembali, antrean dikirim **berurutan**. Server memberi ID resmi (mis. `TMG0007`), lalu ID sementara diganti otomatis di semua data yang merujuknya (mis. lahan milik petani itu).
+4. Indikator kecil di bawah layar menunjukkan status, misalnya `Offline · 3 menunggu`. **Ketuk indikator** untuk membuka panel **Antrean Sinkronisasi**.
+
+### Panel Antrean Sinkronisasi
+
+- **Sinkronkan sekarang**: memaksa kirim tanpa menunggu.
+- **Coba lagi yang gagal**: mengirim ulang item yang ditolak.
+- **Buang data ini**: menghapus satu item yang gagal.
+
+### Bila ada yang gagal
+
+Server tetap memeriksa semua aturan, jadi item bisa **ditolak** saat sinkron, misalnya NIK petani sudah terdaftar. Item seperti itu **tidak hilang**: ia berstatus `gagal` beserta pesan dari server. Lahan yang bergantung pada petani yang gagal ikut berstatus gagal dengan pesan "Bergantung pada data yang gagal disinkronkan". Perbaiki dengan membuang item lalu menginput ulang data yang benar.
+
+### Sesi dan akun
+
+- Sesi login berlaku **8 jam**. Jika habis sebelum sinkron, aplikasi kembali ke layar login dan **antrean tetap tersimpan**. Setelah login ulang, antrean terkirim otomatis dengan token baru.
+- Antrean milik satu akun **tidak akan dikirim** dari akun lain. Login dengan akun pemilik data untuk menyinkronkannya.
+- Saat logout, aplikasi memberi peringatan bila masih ada antrean. Data itu tetap aman di perangkat.
+
+### Batasan yang perlu diketahui
+
+- **Konflik edit:** bila dua orang mengubah petani yang sama, yang tersinkron terakhir yang berlaku.
+- **Data pengguna lain:** perubahan orang lain baru terlihat setelah Anda online dan data dimuat ulang.
+- **Perangkat bersama:** antrean yang belum tersinkron tersimpan di perangkat sampai terkirim atau dibuang.
+- **Lama offline:** pengiriman ulang yang sama dikenali server selama 6 jam. Jika respons hilang lalu dicoba lagi lebih dari 6 jam kemudian, NIK petani yang sama ditolak sebagai duplikat, tetapi lahan bisa tercatat dua kali. Periksa daftar lahan setelah sinkron sesudah offline berhari-hari.
+- **iOS:** pasang aplikasi ke layar utama. Tanpa itu Safari bisa menghapus antrean setelah sekitar 7 hari tidak dipakai.
+- Pustaka dari CDN (Tailwind, Font Awesome, font Google) baru tersimpan untuk offline **setelah aplikasi dibuka sekali dengan internet**.
 
 ## 10. Keamanan
 
@@ -286,10 +322,12 @@ Pustaka dari CDN (Tailwind, Font Awesome, font Google) baru tersimpan untuk offl
 | Galat CORS di console | Ada header `Content-Type` yang ditambahkan ke `fetch`. Hapus; permintaan harus "simple". |
 | `Function not allowed: xxx` | Tambahkan ke `PWA_ALLOWED_FUNCTIONS` di `Api.gs`, lalu deploy **New version**. |
 | `Unknown function: xxx` | Fungsi dideklarasikan dengan `const`/`let`. Ubah menjadi `function xxx() {}`. |
-| `Function not allowed: saveVerifikasiLahan` | Fungsi belum ada di `Code.gs` dan belum diizinkan. Lihat catatan di [A1](#a1-tambahkan-apigs). |
+| `Unknown function: saveVerifikasiLahan` | Fungsinya belum ada di `Code.gs`. Lihat catatan di [A1](#a1-tambahkan-apigs). |
 | Halaman kosong / 404 di GitHub | Source Pages bukan `main` + `/docs`, repositori masih Private (akun gratis), atau folder `docs` belum berisi `index.html`. |
 | Tampilan lama terus muncul | Versi cache belum dinaikkan. Naikkan, push, lalu tutup-buka aplikasi 2 kali. Di desktop: DevTools → Application → Service Workers → **Unregister**. |
 | Tombol **Install** tidak muncul | Pastikan memakai HTTPS (GitHub Pages sudah HTTPS), `manifest.json` terbaca, dan Anda belum memasangnya. Di iOS tidak ada tombol, gunakan Add to Home Screen. |
+| Indikator `gagal` muncul setelah sinkron | Ketuk indikator untuk melihat pesan server (mis. NIK ganda). Buang atau input ulang data. |
+| Pesan "Sistem sibuk melakukan penomoran ID" | `Api.gs` lama masih terpasang. Pakai `Api.gs` terbaru (tidak mengunci ganda) lalu deploy **New version**. |
 | Login selalu gagal setelah deploy | Cek **Executions** di editor Apps Script untuk melihat galat server. Pastikan `setupDatabase()` sudah dijalankan dan sheet `Pengguna` ada. |
 | "Sesi berakhir" berulang | Token sesi memakai `CacheService` (8 jam). Login ulang; ini normal bila cache Apps Script dibersihkan. |
 | Lambat pada panggilan pertama | Apps Script butuh 1–3 detik untuk *cold start*; panggilan berikutnya lebih cepat. |
