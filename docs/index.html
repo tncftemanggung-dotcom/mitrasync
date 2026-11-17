@@ -1257,7 +1257,7 @@
 
 <!-- MODAL VERIFIKASI LAHAN (PIC / ADMIN ONLY) -->
   <div id="modalVerifikasi" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden fade-in">
       <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
         <div class="flex-1">
           <h3 class="text-sm font-bold">Verifikasi Identitas Lahan</h3>
@@ -1269,11 +1269,31 @@
       <form id="formVerifikasi" class="p-5 overflow-y-auto space-y-4 text-xs" onsubmit="event.preventDefault(); window.SIPETA.saveVerifikasiLahan();">
         <input type="hidden" id="verifLahanId">
 
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Titik Koordinat (Latitude, Longitude) *</label>
-          <input type="text" id="verifKoordinat" required class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Misal: -7.3123, 110.1234">
+        <!-- Baris 1: Luas, Klaster, Koordinat -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" title="Bisa diedit jika beda dengan registrasi">Luas Validasi (Ha) *</label>
+            <input type="number" id="verifLuasValidasi" required step="0.01" min="0.01" class="w-full p-2.5 border border-slate-300 rounded-xl bg-white" placeholder="Contoh: 0.50">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1" title="Bisa diedit jika beda dengan registrasi">Klaster Validasi *</label>
+            <select id="verifKlasterValidasi" required class="w-full p-2.5 border border-slate-300 rounded-xl bg-white">
+              <option value="">-- Pilih Klaster --</option>
+              <option value="GUNUNG SINDORO">GUNUNG SINDORO</option>
+              <option value="GUNUNG SUMBING">GUNUNG SUMBING</option>
+              <option value="TEGAL SINDORO">TEGAL SINDORO</option>
+              <option value="TEGAL SUMBING">TEGAL SUMBING</option>
+              <option value="TOALO">TOALO</option>
+              <option value="SAWAH">SAWAH</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Titik Koordinat *</label>
+            <input type="text" id="verifKoordinat" required class="w-full p-2.5 border border-slate-300 rounded-xl bg-white" placeholder="-7.3123, 110.1234">
+          </div>
         </div>
 
+        <!-- Baris 2: Karakteristik Fisik -->
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Irigasi *</label>
@@ -1324,6 +1344,24 @@
           </div>
         </div>
 
+        <!-- Baris 3: Keputusan Status Verifikasi & Catatan -->
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3">
+          <div class="flex items-center gap-4">
+            <div class="flex-1">
+              <label class="block font-bold text-slate-800 mb-1">Keputusan Status Verifikasi *</label>
+              <select id="verifStatus" required onchange="window.SIPETA.toggleCatatanVerifikasi()" class="w-full p-2.5 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-blue-500">
+                <option value="LOLOS">LOLOS (Masuk Fase Berikutnya)</option>
+                <option value="TIDAK LOLOS">TIDAK LOLOS (Lahan Ditolak)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="verifCatatanContainer" class="hidden transition-all">
+            <label class="block font-semibold text-rose-700 mb-1">Alasan / Catatan Penolakan *</label>
+            <textarea id="verifCatatan" rows="2" maxlength="255" class="w-full p-2.5 border border-rose-300 rounded-xl bg-white focus:ring-2 focus:ring-rose-500" placeholder="Wajib diisi jika status TIDAK LOLOS. Maks 255 karakter..."></textarea>
+          </div>
+        </div>
+
         <div class="pt-2">
           <div class="flex justify-between items-center mb-1">
             <label class="font-semibold text-slate-700">Tanda Tangan PIC *</label>
@@ -1334,7 +1372,7 @@
 
         <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
           <button type="button" onclick="window.SIPETA.closeModal('modalVerifikasi')" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">Batal</button>
-          <button type="submit" id="btnSaveVerifikasi" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700">Simpan Verifikasi</button>
+          <button type="submit" id="btnSaveVerifikasi" class="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700">Simpan Keputusan</button>
         </div>
       </form>
     </div>
@@ -2707,12 +2745,23 @@ function openVerifikasiModal(lahanId) {
 
         document.getElementById('verifLahanId').value = l.id;
         document.getElementById('verifKodeLahanLabel').innerText = l.kodeLahan + ' - ' + l.aliasLahan;
+        
+        // Atur Default Luas dan Klaster Validasi (Ambil dari data verifikasi jika ada, atau default registrasi jika belum)
+        document.getElementById('verifLuasValidasi').value = l.luasValidasi ? l.luasValidasi : l.luasHa;
+        document.getElementById('verifKlasterValidasi').value = l.klasterValidasi ? l.klasterValidasi : l.klaster;
+
         document.getElementById('verifKoordinat').value = l.koordinat || '';
         document.getElementById('verifIrigasi').value = l.irigasi || '';
         document.getElementById('verifTekstur').value = l.teksturTanah || '';
         document.getElementById('verifLereng').value = l.arahLereng || '';
         document.getElementById('verifKemiringan').value = l.kemiringan || '';
         document.getElementById('verifKetinggian').value = l.ketinggian || '';
+
+        document.getElementById('verifStatus').value = l.statusVerifikasi || 'LOLOS';
+        document.getElementById('verifCatatan').value = l.catatanVerifikasi || '';
+        
+        // Panggil fungsi toggle untuk memastikan field catatan terbuka jika status = TIDAK LOLOS
+        window.SIPETA.toggleCatatanVerifikasi();
 
         // Tampilkan canvas sign jika sudah ada
         if (l.tandaTanganPic && l.tandaTanganPic.length > 50) {
@@ -2731,6 +2780,11 @@ function openVerifikasiModal(lahanId) {
 
       function saveVerifikasiLahan() {
         var id = document.getElementById('verifLahanId').value;
+        var luasValidasi = document.getElementById('verifLuasValidasi').value;
+        var klasterValidasi = document.getElementById('verifKlasterValidasi').value;
+        var statusVerifikasi = document.getElementById('verifStatus').value;
+        var catatanVerifikasi = document.getElementById('verifCatatan').value.trim();
+        
         var koordinat = document.getElementById('verifKoordinat').value.trim();
         var irigasi = document.getElementById('verifIrigasi').value;
         var teksturTanah = document.getElementById('verifTekstur').value;
@@ -2739,8 +2793,18 @@ function openVerifikasiModal(lahanId) {
         var ketinggian = document.getElementById('verifKetinggian').value.trim();
         var canvasPic = document.getElementById('canvasPicSign');
 
+        // Validasi wajib Catatan jika TIDAK LOLOS
+        if (statusVerifikasi === 'TIDAK LOLOS' && catatanVerifikasi.length === 0) {
+            showToast('Catatan / Alasan penolakan wajib diisi jika status TIDAK LOLOS.', 'warning');
+            return;
+        }
+
         var payload = {
           id: id,
+          luasValidasi: luasValidasi,
+          klasterValidasi: klasterValidasi,
+          statusVerifikasi: statusVerifikasi,
+          catatanVerifikasi: statusVerifikasi === 'LOLOS' ? '' : catatanVerifikasi,
           koordinat: koordinat,
           irigasi: irigasi,
           teksturTanah: teksturTanah,
@@ -2756,13 +2820,13 @@ function openVerifikasiModal(lahanId) {
 
         gasRun('saveVerifikasiLahan', sessionToken, payload).then(function(res) {
           btn.disabled = false;
-          btn.innerText = 'Simpan Verifikasi';
+          btn.innerText = 'Simpan Keputusan';
           if (res.sessionExpired) {
             handleSessionExpired();
             return;
           }
           if (res.success) {
-            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Lahan berhasil diverifikasi.', 'success');
+            showToast(res.queued ? OFFLINE_SAVED_MSG : 'Keputusan verifikasi lahan berhasil disimpan.', 'success');
             closeModal('modalVerifikasi');
             loadAllData();
           } else {
@@ -2770,7 +2834,7 @@ function openVerifikasiModal(lahanId) {
           }
         }).catch(function(err) {
           btn.disabled = false;
-          btn.innerText = 'Simpan Verifikasi';
+          btn.innerText = 'Simpan Keputusan';
           showToast(err.message, 'error');
         });
       }
@@ -3742,6 +3806,21 @@ function openVerifikasiModal(lahanId) {
         }
       }
 
+      function toggleCatatanVerifikasi() {
+        var status = document.getElementById('verifStatus').value;
+        var container = document.getElementById('verifCatatanContainer');
+        var catatanInput = document.getElementById('verifCatatan');
+        
+        if (status === 'TIDAK LOLOS') {
+          container.classList.remove('hidden');
+          catatanInput.required = true;
+        } else {
+          container.classList.add('hidden');
+          catatanInput.required = false;
+          catatanInput.value = '';
+        }
+      }
+
       // EXPOSE FUNGSI GLOBAL KE WINDOW UNTUK EVENT HANDLER HTML
       window.SIPETA = {
         handleLogin: handleLogin,
@@ -3789,6 +3868,7 @@ function openVerifikasiModal(lahanId) {
         setWilayah: setWilayah,
         toggleLahan: toggleLahan,
         toggleVerif: toggleVerif,
+        toggleCatatanVerifikasi: toggleCatatanVerifikasi,
         filterVerifikasiTable: renderVerifikasi,
         openVerifikasiModal: openVerifikasiModal,
         saveVerifikasiLahan: saveVerifikasiLahan
