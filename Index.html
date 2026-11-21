@@ -196,6 +196,10 @@
       <aside id="appSidebar" class="hidden lg:flex w-64 bg-slate-900 text-slate-300 flex-col z-20">
         <!-- Menu Navigation Items -->
         <nav class="flex-1 overflow-y-auto p-4 space-y-1.5 text-sm" id="sidebarNavList">
+          <button type="button" onclick="window.SIPETA.showPage('beranda')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left font-medium" data-page="beranda">
+            <i class="fa-solid fa-house w-5 text-center"></i>
+            <span>Beranda</span>
+          </button>
           <button type="button" onclick="window.SIPETA.showPage('dashboard')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left font-medium" data-page="dashboard">
             <i class="fa-solid fa-chart-pie w-5 text-center"></i>
             <span>Dashboard</span>
@@ -291,6 +295,10 @@
               <i class="fa-solid fa-building-wheat w-5 text-center"></i>
               <span>Trader & PIC</span>
             </button>
+            <button type="button" onclick="window.SIPETA.showPage('beranda_config')" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left font-medium" data-page="beranda_config">
+              <i class="fa-solid fa-bullhorn w-5 text-center"></i>
+              <span>Jadwal & Info</span>
+            </button>
           </div>
         </nav>
 
@@ -306,18 +314,137 @@
       <!-- MAIN CONTENT VIEW AREA -->
       <main class="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8" id="mainContentContainer">
         
-        <!-- ================= PAGE: DASHBOARD ================= -->
-        <section id="pageDashboard" class="page-section hidden fade-in space-y-6">
-          <!-- Sapaan Pengguna Baru -->
-          <div class="bg-white px-5 py-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between mb-2">
+        <!-- ================= PAGE: BERANDA ================= -->
+        <section id="pageBeranda" class="page-section hidden fade-in space-y-5">
+          <!-- Sapaan Pengguna (Pindah dari Dashboard) -->
+          <div class="bg-gradient-to-r from-emerald-700 to-teal-800 text-white px-5 py-5 rounded-2xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 class="text-lg font-bold text-slate-800">Halo, <span id="dashGreetingName" class="text-emerald-600">Pengguna</span>! 👋</h2>
-              <p class="text-xs text-slate-500">Selamat datang kembali di sistem SIPETA MITRA.</p>
+              <p id="berandaDateLabel" class="text-[11px] font-medium text-emerald-200 uppercase tracking-wider mb-1">-</p>
+              <h2 class="text-xl font-bold leading-tight">Halo, <span id="berandaGreetingName" class="text-amber-300">Pengguna</span>! 👋</h2>
+              <p class="text-xs text-emerald-100 mt-1">Selamat datang kembali di sistem SIPETA MITRA.</p>
             </div>
-            <div class="hidden sm:block">
-              <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg" id="dashGreetingRole">ROLE</span>
+            <div class="flex items-center gap-2 self-start sm:self-center">
+              <span class="text-xs font-semibold px-3 py-1.5 bg-white/15 backdrop-blur rounded-xl border border-white/20" id="berandaGreetingRole">ROLE</span>
+              <button type="button" onclick="window.SIPETA.showPage('dashboard')" class="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Buka Dashboard</span>
+              </button>
             </div>
           </div>
+
+          <!-- INFORMASI TAMBAHAN / PENGUMUMAN DARI ADMIN -->
+          <div id="berandaInfoTambahanContainer" class="space-y-3 hidden"></div>
+
+          <!-- KARTU CUACA HARI INI -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-cloud-sun text-amber-500"></i>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Prakiraan Cuaca Hari Ini</h3>
+              </div>
+              <button type="button" onclick="window.SIPETA.loadBerandaWeather(true)" class="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                <span>Perbarui Lokasi</span>
+              </button>
+            </div>
+            <div id="berandaWeatherContent" class="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-3 text-slate-400 text-xs">
+                <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-lg"></i>
+                <span>Mendeteksi lokasi perangkat & mengambil data cuaca...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- KARTU PRANOTO MONGSO & REKOMENDASI TEMBAKAU TEMANGGUNG -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3.5 bg-amber-50/70 border-b border-amber-100 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-calendar-day text-amber-700"></i>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-amber-900">Pranoto Mongso Pertanian Jawa</h3>
+              </div>
+              <span id="pmPeriodBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900">-</span>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                  <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Mongso Saat Ini</span>
+                  <h4 id="pmTitle" class="text-lg sm:text-xl font-extrabold text-slate-800 mt-0.5">-</h4>
+                  <p id="pmCandra" class="text-xs italic text-amber-700 font-medium mt-0.5">-</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs">
+                  <span class="block text-[10px] text-slate-400 font-semibold uppercase">Karakteristik Musim</span>
+                  <span id="pmSeasonChar" class="font-bold text-slate-700">-</span>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex items-center gap-2 mb-2.5">
+                  <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
+                    <i class="fa-solid fa-seedling"></i>
+                  </span>
+                  <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Rekomendasi Budidaya Tembakau Temanggung</h5>
+                </div>
+                <p id="pmTobaccoPhase" class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl mb-3">-</p>
+                <ul id="pmTobaccoTips" class="space-y-2 text-xs text-slate-600">
+                  <!-- Rendered via JS -->
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- KARTU JADWAL PERIODE TANAM & PERINGATAN VARIETAS -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3.5 bg-emerald-50/70 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-emerald-700"></i>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-900">Jadwal Periode Tanam per Klaster</h3>
+              </div>
+              <span id="tanamCurrentPeriodBadge" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200/70 text-emerald-900">-</span>
+            </div>
+
+            <div class="p-5 space-y-4">
+              <!-- Info / Peringatan Dinamis Sesuai Tanggal Hari Ini -->
+              <div id="berandaTanamAlerts" class="space-y-2">
+                <!-- Rendered via JS -->
+              </div>
+
+              <!-- Tabel Acuan Periode Tanam -->
+              <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                      <th class="p-2.5">Klaster</th>
+                      <th class="p-2.5">Varietas Kemloko</th>
+                      <th class="p-2.5">Kenongo Pakis / Pelus</th>
+                      <th class="p-2.5 text-center">Status Saat Ini</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyJadwalTanam" class="divide-y divide-slate-100">
+                    <!-- Rendered via JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Peringatan Wajib Varietas -->
+              <div class="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center flex-none mt-0.5">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="text-xs text-rose-900 space-y-1">
+                  <p class="font-bold uppercase tracking-wide text-rose-800">Peringatan Aturan Varietas!</p>
+                  <ul class="list-disc pl-4 space-y-0.5 text-rose-800/90">
+                    <li>Klaster <strong>Gunung</strong> dan <strong>Tegal</strong> <strong>HANYA BOLEH</strong> menanam <strong>Varietas Kemloko</strong>.</li>
+                    <li>Klaster <strong>Toalo</strong> dan <strong>Sawah</strong> boleh menanam <strong>Varietas Kemloko</strong> maupun <strong>Kenongo Pakis / Pelus</strong>.</li>
+                    <li class="font-bold text-rose-700">Di luar varietas yang disebutkan di atas, JANGAN LHO YA!</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PAGE: DASHBOARD ================= -->
+        <section id="pageDashboard" class="page-section hidden fade-in space-y-6">
 
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -742,6 +869,75 @@
           </div>
         </section>
 
+    <!-- ================= PAGE: JADWAL & INFO (ADMIN ONLY) ================= -->
+        <section id="pageBeranda_config" class="page-section hidden fade-in space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-xl font-bold text-slate-900">Pengaturan Jadwal Tanam & Informasi</h1>
+              <p class="text-xs text-slate-500">Ubah aturan periode tanam per klaster dan kelola pengumuman/himbauan yang tampil di Beranda</p>
+            </div>
+            <button type="button" onclick="window.SIPETA.loadDashboardData()" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold rounded-lg shadow-sm flex items-center gap-2 self-start">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <!-- KARTU 1: PENGATURAN JADWAL TANAM -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800">Aturan Periode Jadwal Tanam</h3>
+                <p class="text-[11px] text-slate-400">Format contoh: Maret IV, April II, Mei I (kosongkan jika varietas tidak diizinkan)</p>
+              </div>
+              <button type="button" onclick="window.SIPETA.openJadwalModal()" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>Tambah Klaster</span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                    <th class="p-2.5">Klaster</th>
+                    <th class="p-2.5">Kemloko (Awal - Akhir)</th>
+                    <th class="p-2.5">Kenongo Pakis/Pelus</th>
+                    <th class="p-2.5 text-center">Status</th>
+                    <th class="p-2.5 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAdminJadwalTanam" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- KARTU 2: MANAJEMEN INFORMASI TAMBAHAN -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800">Manajemen Informasi Tambahan (Beranda)</h3>
+                <p class="text-[11px] text-slate-400">Informasi berstatus AKTIF akan langsung muncul di halaman Beranda seluruh pengguna</p>
+              </div>
+              <button type="button" onclick="window.SIPETA.openInfoModal()" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>Tambah Informasi</span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                    <th class="p-2.5">Kategori</th>
+                    <th class="p-2.5">Judul & Isi Informasi</th>
+                    <th class="p-2.5 text-center">Status</th>
+                    <th class="p-2.5 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyAdminInfoTambahan" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>    
+
 <!-- ================= PAGE: VERIFIKASI LAHAN ================= -->
         <section id="pageVerifikasi" class="page-section hidden fade-in space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -985,11 +1181,11 @@
     <!-- BOTTOM NAVIGATION (HANYA MUNCUL DI MOBILE / HP) -->
     <nav class="lg:hidden bg-white border-t border-slate-200 flex items-center justify-between pb-safe pt-2 px-1 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
       
-     <!-- HOME (DASHBOARD) -->
+     <!-- HOME (BERANDA) -->
       <div class="relative flex-1 flex justify-center py-1">
-        <button type="button" onclick="window.SIPETA.showPage('dashboard')" class="flex flex-col items-center justify-center w-12 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-md shadow-emerald-600/40 transition-transform active:scale-95">
+        <button type="button" onclick="window.SIPETA.showPage('beranda')" class="flex flex-col items-center justify-center w-12 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-md shadow-emerald-600/40 transition-transform active:scale-95">
           <i class="fa-solid fa-house text-lg mb-0.5"></i>
-          <span class="text-[9px] font-bold leading-tight">Home</span>
+          <span class="text-[9px] font-bold leading-tight">Beranda</span>
         </button>
       </div>
 
@@ -1106,13 +1302,17 @@
             <i class="fa-solid fa-user-shield text-slate-600 text-base w-5 text-center"></i>
             <span class="text-xs font-bold text-slate-700">Pengguna & Role</span>
           </button>
-          <button type="button" onclick="window.SIPETA.showPage('trader_config'); window.SIPETA.togglePopup('popupAdminMobile')" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition rounded-b-xl text-left">
+          <button type="button" onclick="window.SIPETA.showPage('trader_config'); window.SIPETA.togglePopup('popupAdminMobile')" class="flex items-center gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition text-left">
             <i class="fa-solid fa-building-wheat text-slate-600 text-base w-5 text-center"></i>
             <span class="text-xs font-bold text-slate-700">Trader & PIC</span>
           </button>
+          <button type="button" onclick="window.SIPETA.showPage('beranda_config'); window.SIPETA.togglePopup('popupAdminMobile')" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition rounded-b-xl text-left">
+            <i class="fa-solid fa-bullhorn text-emerald-600 text-base w-5 text-center"></i>
+            <span class="text-xs font-bold text-slate-700">Jadwal & Info</span>
+          </button>
           <div class="absolute -bottom-1.5 left-3/4 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-slate-200 transform rotate-45"></div>
         </div>
-        <button type="button" onclick="window.SIPETA.togglePopup('popupAdminMobile')" class="mobile-tab flex flex-col items-center p-2 transition text-slate-400 hover:text-slate-600" data-page="pengguna,trader_config">
+        <button type="button" onclick="window.SIPETA.togglePopup('popupAdminMobile')" class="mobile-tab flex flex-col items-center p-2 transition text-slate-400 hover:text-slate-600" data-page="pengguna,trader_config,beranda_config">
           <i class="fa-solid fa-gear text-lg mb-1 transition-transform"></i>
           <span class="text-[9px] font-medium leading-tight">Admin</span>
         </button>
@@ -2277,6 +2477,95 @@
     </div>
   </div>
 
+  <!-- MODAL JADWAL TANAM (ADMIN ONLY) -->
+  <div id="modalJadwalTanam" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden fade-in">
+      <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
+        <h3 id="modalJadwalTitle" class="text-sm font-bold">Edit Jadwal Tanam</h3>
+        <button type="button" onclick="window.SIPETA.closeModal('modalJadwalTanam')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <form id="formJadwalTanam" class="p-5 space-y-3.5 text-xs" onsubmit="event.preventDefault(); window.SIPETA.saveJadwalTanam();">
+        <input type="hidden" id="jdwId">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Klaster *</label>
+          <input type="text" id="jdwKlaster" required class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Contoh: Gunung / Tegal / Toalo / Sawah">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Kemloko Awal *</label>
+            <input type="text" id="jdwKemlokoAwal" required class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Contoh: Maret IV">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Kemloko Akhir *</label>
+            <input type="text" id="jdwKemlokoAkhir" required class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Contoh: April II">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Kenongo/Pelus Awal</label>
+            <input type="text" id="jdwKenongoAwal" class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Kosongkan jika dilarang">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Kenongo/Pelus Akhir</label>
+            <input type="text" id="jdwKenongoAkhir" class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Kosongkan jika dilarang">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Status</label>
+          <select id="jdwStatus" class="w-full p-2.5 border border-slate-200 rounded-xl">
+            <option value="AKTIF">AKTIF</option>
+            <option value="TIDAK AKTIF">TIDAK AKTIF</option>
+          </select>
+        </div>
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="window.SIPETA.closeModal('modalJadwalTanam')" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">Batal</button>
+          <button type="submit" id="btnSaveJadwal" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700">Simpan Jadwal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL INFORMASI TAMBAHAN (ADMIN ONLY) -->
+  <div id="modalInfoTambahan" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden fade-in">
+      <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
+        <h3 id="modalInfoTitle" class="text-sm font-bold">Tambah Informasi Tambahan</h3>
+        <button type="button" onclick="window.SIPETA.closeModal('modalInfoTambahan')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <form id="formInfoTambahan" class="p-5 space-y-3.5 text-xs" onsubmit="event.preventDefault(); window.SIPETA.saveInfoTambahan();">
+        <input type="hidden" id="infoId">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Kategori *</label>
+          <select id="infoKategori" required class="w-full p-2.5 border border-slate-200 rounded-xl">
+            <option value="PERTEMUAN">PERTEMUAN</option>
+            <option value="HIMBAUAN">HIMBAUAN</option>
+            <option value="ATURAN KONDISIONAL">ATURAN KONDISIONAL</option>
+            <option value="PENGUMUMAN">PENGUMUMAN</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Judul Informasi *</label>
+          <input type="text" id="infoJudul" required maxlength="120" class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Contoh: Rapat Koordinasi Field Force">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Isi Informasi *</label>
+          <textarea id="infoIsi" required rows="4" maxlength="1000" class="w-full p-2.5 border border-slate-200 rounded-xl" placeholder="Tulis detail informasi, jadwal pertemuan, atau aturan kondisional..."></textarea>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Tampilkan di Beranda?</label>
+          <select id="infoStatus" class="w-full p-2.5 border border-slate-200 rounded-xl">
+            <option value="AKTIF">AKTIF (Tampil di Beranda)</option>
+            <option value="TIDAK AKTIF">TIDAK AKTIF (Sembunyikan)</option>
+          </select>
+        </div>
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="window.SIPETA.closeModal('modalInfoTambahan')" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">Batal</button>
+          <button type="submit" id="btnSaveInfo" class="px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700">Simpan Informasi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT LOGIC DIBUNGKUS DALAM IIFE -->
   <script>
     (function () {
@@ -2290,7 +2579,7 @@
       // 2. STATE MANAJEMEN APLIKASI
       var sessionToken = null;
       var currentUser = null;
-      var activePage = 'dashboard';
+      var activePage = 'beranda';
 
       // MAP PIC OTOMATIS BERDASARKAN ID FF ATAU NAMA FF
       var picMapping = {
@@ -2759,9 +3048,9 @@
         var mobileBadge = document.getElementById('navUserRoleBadgeMobile');
         if (mobileBadge) mobileBadge.textContent = currentUser.role;
 
-        var greetingName = document.getElementById('dashGreetingName');
+        var greetingName = document.getElementById('berandaGreetingName');
         if (greetingName) greetingName.textContent = currentUser.fullname;
-        var greetingRole = document.getElementById('dashGreetingRole');
+        var greetingRole = document.getElementById('berandaGreetingRole');
         if (greetingRole) greetingRole.textContent = 'Role: ' + currentUser.role;
 
         var displayTrader = 'Semua';
@@ -2773,7 +3062,7 @@
         document.getElementById('navUserTraderBadge').textContent = 'Trader: ' + displayTrader;
 
         applyRolePermissions();
-        showPage('dashboard');
+        showPage('beranda');
         loadAllData();
       }
 
@@ -2867,7 +3156,7 @@
 
       // 9. DATA STORE LOKAL & OPTIMISTIC CACHE
       var localStore = {
-        traders: [], koordinators: [], petani: [], lahan: [], users: [], picAssignments: [], stokOpname: [], serahTerima: [], distribusiBenih: [], sebarBenih: [], pembibitan: []
+        traders: [], koordinators: [], petani: [], lahan: [], users: [], picAssignments: [], stokOpname: [], serahTerima: [], distribusiBenih: [], sebarBenih: [], pembibitan: [], jadwalTanam: [], infoTambahan: []
       };
 
       // 9b. MODE OFFLINE: ID sementara, tampilan gabungan, sinkronisasi antrean
@@ -3184,6 +3473,7 @@
       }
 
       function renderCurrentPage() {
+        if (activePage === 'beranda') renderBeranda();
         if (activePage === 'dashboard') renderDashboard();
         if (activePage === 'koordinator') renderKoordinator();
         if (activePage === 'petani') renderPetani();
@@ -3192,6 +3482,7 @@
         if (activePage === 'laporan') generateReport();
         if (activePage === 'pengguna') renderPengguna();
         if (activePage === 'trader_config') renderTraderConfig();
+        if (activePage === 'beranda_config') renderBerandaConfig();
         if (activePage === 'stok_opname') renderStokOpname();
         if (activePage === 'serah_terima') renderSerahTerima();
         if (activePage === 'distribusi_benih') renderDistribusiBenih();
@@ -3642,9 +3933,10 @@
         // Cari semua petani yang statusnya AKTIF
         var activePetaniIds = localStore.petani.filter(function(p) { return p.status === 'AKTIF'; }).map(function(p) { return p.id; });
 
-        // Filter lahan terlebih dahulu
+        // Filter lahan terlebih dahulu (hanya lahan AKTIF dari petani AKTIF)
         var filteredLahan = localStore.lahan.filter(function(l) {
           if (activePetaniIds.indexOf(l.petaniId) === -1) return false;
+          if (l.status !== 'AKTIF') return false;
 
           var pObj = localStore.petani.find(function(p) { return p.id === l.petaniId; });
           var pName = pObj ? pObj.nama.toLowerCase() : '';
@@ -3694,23 +3986,17 @@
             hasTraderContent = true;
             totalRenderedGroups++;
 
-            var groupCard = '<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">' +
-              '<div class="bg-slate-800 px-4 py-3.5 flex flex-wrap items-center justify-between gap-3 text-white transition hover:bg-slate-700">' +
-                '<div class="flex-1 cursor-pointer flex items-center gap-3 select-none" onclick="window.SIPETA.toggleKoorVerif(\'' + k.id + '\')" title="Klik untuk memunculkan/menyembunyikan daftar petani">' +
-                  '<div class="w-6 h-6 flex items-center justify-center bg-slate-700 border border-slate-600 rounded text-slate-300 hover:text-white transition-colors shadow-sm">' +
-                    '<i id="icon-koor-verif-' + k.id + '" class="fa-solid fa-chevron-right text-[10px] transition-transform"></i>' +
-                  '</div>' +
+            var groupCard = '<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">' +
+              '<div class="bg-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-white">' +
+                '<div class="flex items-center gap-3">' +
                   '<div class="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center font-bold text-xs shadow-sm">' + escapeHTML(k.kodeSeri) + '</div>' +
                   '<div>' +
                     '<h3 class="text-sm font-bold uppercase">Koor: ' + escapeHTML(k.nama) + '</h3>' +
                     '<p class="text-[11px] text-slate-300">Wilayah: ' + escapeHTML(k.desa) + ', ' + escapeHTML(k.kecamatan) + '</p>' +
                   '</div>' +
                 '</div>' +
-                '<div class="flex items-center gap-2 z-10">' +
-                  '<span class="text-xs font-semibold bg-slate-700 px-2 py-1 border border-slate-600 rounded-md text-emerald-300">' + petaniUnderKoor.length + ' Petani</span>' +
-                '</div>' +
               '</div>' +
-              '<div id="koor-verif-container-' + k.id + '" class="hidden p-4 space-y-4 bg-slate-50">';
+              '<div class="p-4 space-y-4">';
 
             petaniUnderKoor.forEach(function(p) {
               var lahanMilikPetani = filteredLahan.filter(function(l) { return l.petaniId === p.id; });
@@ -6393,8 +6679,570 @@ function openVerifikasiModal(lahanId) {
         }
       }); 
 
+// ================= LOGIKA BERANDA (CUACA & PRANOTO MONGSO) =================
+      var berandaWeatherLoaded = false;
+
+      function renderBeranda() {
+        var now = new Date();
+        var dateEl = document.getElementById('berandaDateLabel');
+        if (dateEl) {
+          dateEl.textContent = now.toLocaleDateString('id-ID', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          });
+        }
+
+        renderInfoTambahanBeranda();
+        renderPranotoMongso(now);
+        renderJadwalTanam(now);
+
+        if (!berandaWeatherLoaded) {
+          loadBerandaWeather(false);
+        }
+      }
+
+      function getWeatherInfoByCode(code) {
+        if (code === 0) return { label: 'Cerah', icon: 'fa-sun text-amber-500' };
+        if (code >= 1 && code <= 3) return { label: 'Cerah Berawan', icon: 'fa-cloud-sun text-amber-400' };
+        if (code === 45 || code === 48) return { label: 'Berkabut', icon: 'fa-smog text-slate-400' };
+        if (code >= 51 && code <= 57) return { label: 'Gerimis', icon: 'fa-cloud-rain text-sky-400' };
+        if (code >= 61 && code <= 67) return { label: 'Hujan', icon: 'fa-cloud-showers-heavy text-blue-500' };
+        if (code >= 80 && code <= 82) return { label: 'Hujan Lokal', icon: 'fa-cloud-sun-rain text-blue-500' };
+        if (code >= 95) return { label: 'Hujan Petir', icon: 'fa-cloud-bolt text-indigo-600' };
+        return { label: 'Berawan', icon: 'fa-cloud text-slate-400' };
+      }
+
+      function fetchWeatherByCoords(lat, lng, locLabel) {
+        var box = document.getElementById('berandaWeatherContent');
+        var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lng +
+                  '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
+                  '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FJakarta';
+
+        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+          berandaWeatherLoaded = true;
+          var cur = data.current || {};
+          var daily = data.daily || {};
+          var w = getWeatherInfoByCode(cur.weather_code);
+          var temp = cur.temperature_2m !== undefined ? Math.round(cur.temperature_2m) : '-';
+          var hum = cur.relative_humidity_2m !== undefined ? cur.relative_humidity_2m : '-';
+          var wind = cur.wind_speed_10m !== undefined ? cur.wind_speed_10m : '-';
+          var tMax = (daily.temperature_2m_max && daily.temperature_2m_max[0] !== undefined) ? Math.round(daily.temperature_2m_max[0]) : '-';
+          var tMin = (daily.temperature_2m_min && daily.temperature_2m_min[0] !== undefined) ? Math.round(daily.temperature_2m_min[0]) : '-';
+          var rainProb = (daily.precipitation_probability_max && daily.precipitation_probability_max[0] !== undefined) ? daily.precipitation_probability_max[0] : '-';
+
+          if (box) {
+            box.innerHTML =
+              '<div class="flex items-center gap-4">' +
+                '<div class="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-3xl shadow-inner">' +
+                  '<i class="fa-solid ' + w.icon + '"></i>' +
+                '</div>' +
+                '<div>' +
+                  '<div class="flex items-baseline gap-2">' +
+                    '<span class="text-3xl font-extrabold text-slate-800">' + temp + '&deg;C</span>' +
+                    '<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">' + escapeHTML(w.label) + '</span>' +
+                  '</div>' +
+                  '<p class="text-[11px] text-slate-500 mt-0.5"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>' + escapeHTML(locLabel) + '</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="grid grid-cols-3 gap-2.5 w-full sm:w-auto text-center text-xs">' +
+                '<div class="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">' +
+                  '<span class="block text-[10px] text-slate-400">Kelembaban</span>' +
+                  '<span class="font-bold text-slate-700">' + hum + '%</span>' +
+                '</div>' +
+                '<div class="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">' +
+                  '<span class="block text-[10px] text-slate-400">Peluang Hujan</span>' +
+                  '<span class="font-bold text-blue-600">' + rainProb + '%</span>' +
+                '</div>' +
+                '<div class="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">' +
+                  '<span class="block text-[10px] text-slate-400">Min / Maks</span>' +
+                  '<span class="font-bold text-slate-700">' + tMin + '&deg; / ' + tMax + '&deg;</span>' +
+                '</div>' +
+              '</div>';
+          }
+        }).catch(function() {
+          if (box) {
+            box.innerHTML = '<div class="text-xs text-rose-600 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i><span>Gagal memuat data cuaca. Pastikan perangkat terhubung ke internet.</span></div>';
+          }
+        });
+      }
+
+      function loadBerandaWeather(forceRefresh) {
+        var box = document.getElementById('berandaWeatherContent');
+        if (forceRefresh && box) {
+          box.innerHTML = '<div class="flex items-center gap-3 text-slate-400 text-xs"><i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-lg"></i><span>Memperbarui lokasi & cuaca...</span></div>';
+        }
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(pos) {
+              var lat = pos.coords.latitude.toFixed(4);
+              var lng = pos.coords.longitude.toFixed(4);
+              fetchWeatherByCoords(lat, lng, 'Lokasi Perangkat (' + lat + ', ' + lng + ')');
+            },
+            function() {
+              // Fallback default ke Temanggung jika izin GPS ditolak
+              fetchWeatherByCoords(-7.3167, 110.1750, 'Temanggung (Lokasi Default)');
+            },
+            { enableHighAccuracy: false, timeout: 8000 }
+          );
+        } else {
+          fetchWeatherByCoords(-7.3167, 110.1750, 'Temanggung (Lokasi Default)');
+        }
+      }
+
+      function getPranotoMongso(date) {
+        var m = date.getMonth() + 1;
+        var d = date.getDate();
+        var mmdd = m * 100 + d;
+
+        var list = [
+          {
+            name: 'Mongso Kasa (I)', period: '22 Jun - 1 Agt', candra: 'Sotya murca ing embanan',
+            season: 'Awal Kemarau (Terang & Dingin)',
+            phase: 'Fase Pertumbuhan Vegetatif & Pemeliharaan Intensif',
+            tips: [
+              'Lakukan pemupukan susulan sesuai dosis anjuran dan pendangiran gulma.',
+              'Lakukan penyiraman teratur terutama di lahan tegalan lereng Sindoro-Sumbing.',
+              'Waspadai serangan ulat grayak/pucuk dan mulai persiapkan punggel (topping) untuk tanaman awal.'
+            ]
+          },
+          {
+            name: 'Mongso Karo (II)', period: '2 Agt - 24 Agt', candra: 'Bantala rengka',
+            season: 'Kemarau Kering (Tanah Mulai Retak)',
+            phase: 'Fase Pemasakan Daun & Awal Panen (Petik Daun Bawah)',
+            tips: [
+              'Lakukan punggel (topping) dan pembuangan tunas ketiak (wiwil) secara rutin agar daun tebal.',
+              'Mulai panen daun bawah (kosaran/tengahan) saat kematangan optimal.',
+              'Pastikan rigen dan peralatan rajang siap untuk penjemuran kualitas maksimal.'
+            ]
+          },
+          {
+            name: 'Mongso Katigo / Katelu (III)', period: '25 Agt - 17 Sep', candra: 'Suta manut ing bapa',
+            season: 'Puncak Kemarau (Panas Terik)',
+            phase: 'Fase Panen Raya & Pengolahan (Rajang & Penjemuran)',
+            tips: [
+              'Puncak panen daun tengah hingga atas (kualitas grade tinggi / srinthil jika kondisi mendukung).',
+              'Atur pemeraman (imbu) daun 2-4 hari hingga menguning merata sebelum dirajang.',
+              'Manfaatkan terik matahari penuh untuk penjemuran agar aroma dan warna tembakau optimal.'
+            ]
+          },
+          {
+            name: 'Mongso Kapat (IV)', period: '18 Sep - 12 Okt', candra: 'Waspa kumembeng jroning kalbu',
+            season: 'Akhir Kemarau / Awal Pancaroba',
+            phase: 'Fase Akhir Panen (Daun Pucuk) & Evaluasi',
+            tips: [
+              'Segera selesaikan petik daun pucuk sebelum hujan pertama turun.',
+              'Jaga kadar air tembakau kering saat penyimpanan di gudang/keranjang agar tidak berjamur.',
+              'Bersihkan sisa batang tembakau (sanitasi lahan) setelah panen selesai.'
+            ]
+          },
+          {
+            name: 'Mongso Kalima (V)', period: '13 Okt - 8 Nov', candra: 'Pancuran emas sumawur ing jagad',
+            season: 'Awal Musim Hujan',
+            phase: 'Fase Bera / Rotasi Tanaman Palawija & Hortikultura',
+            tips: [
+              'Lakukan rotasi tanaman (jagung, cabai, kubis, atau kacang-kacangan) untuk memutus siklus hama.',
+              'Perbaiki saluran drainase dan terasering lahan miring untuk mencegah erosi.',
+              'Mulai pengomposan pupuk kandang agar matang sempurna untuk musim tanam berikutnya.'
+            ]
+          },
+          {
+            name: 'Mongso Kanem (VI)', period: '9 Nov - 21 Des', candra: 'Rasa mulya kasucian',
+            season: 'Musim Hujan',
+            phase: 'Fase Rotasi Tanaman & Pemulihan Kesuburan Tanah',
+            tips: [
+              'Fokus pada pemeliharaan tanaman sela/rotasi dan konservasi tanah.',
+              'Lakukan pendataan & evaluasi hasil panen tembakau musim lalu bersama koordinator.',
+              'Siapkan perencanaan luasan dan registrasi mitra untuk musim tanam mendatang.'
+            ]
+          },
+          {
+            name: 'Mongso Kapitu (VII)', period: '22 Des - 2 Feb', candra: 'Wisa kentar ing maruta',
+            season: 'Puncak Musim Hujan & Angin Kencang',
+            phase: 'Fase Persiapan Administrasi & Verifikasi Lahan',
+            tips: [
+              'Lakukan registrasi petani mitra, pemetaan lahan, dan verifikasi lahan oleh PIC.',
+              'Pastikan ketersediaan benih tembakau varietas unggul bersertifikat.',
+              'Hindari pengolahan tanah berat saat tanah terlalu jenuh air agar struktur tidak rusak.'
+            ]
+          },
+          {
+            name: 'Mongso Kawolu (VIII)', period: '3 Feb - 29 Feb', candra: 'Anjrah jroning kayun',
+            season: 'Musim Hujan Mulai Mereda',
+            phase: 'Fase Persiapan Pembibitan & Distribusi Benih',
+            tips: [
+              'Lakukan distribusi benih ke petani mitra sesuai luasan lahan terverifikasi.',
+              'Siapkan lokasi dan media bedengan pembibitan (tanah gembur + kompos matang).',
+              'Buat naungan (sungkup plastik/paranet) untuk melindungi persemaian dari hujan deras.'
+            ]
+          },
+          {
+            name: 'Mongso Kasanga (IX)', period: '1 Mar - 25 Mar', candra: 'Wedaring wacana mulya',
+            season: 'Peralihan Hujan ke Kemarau (Mareng)',
+            phase: 'Fase Sebar Benih & Perawatan Pembibitan',
+            tips: [
+              'Lakukan sebar benih secara merata dan catat tanggal sebar di menu GAP Sebar Benih.',
+              'Pantau kelembaban bedengan, kesehatan bibit, serta cegah serangan semut, siput, dan rebah semai.',
+              'Mulai olah tanah tahap awal (pembajakan/pencangkulan) di lahan utama.'
+            ]
+          },
+          {
+            name: 'Mongso Kadasa (X)', period: '26 Mar - 18 Apr', candra: 'Gedhong mineb jroning kalbu',
+            season: 'Pancaroba (Hujan Mulai Jarang)',
+            phase: 'Fase Pembibitan Lanjut & Pembuatan Bedengan',
+            tips: [
+              'Lakukan monitoring keseragaman & kecukupan bibit di menu GAP Pembibitan.',
+              'Bentuk guludan/bedengan lahan tanam dan aplikasikan pupuk dasar (organik/SP-36/ZA).',
+              'Lakukan adaptasi sinar matahari (hardening) pada bibit menjelang pindah tanam.'
+            ]
+          },
+          {
+            name: 'Mongso Desta (XI)', period: '19 Apr - 11 Mei', candra: 'Sotya sinarawedi',
+            season: 'Akhir Pancaroba Menuju Kemarau',
+            phase: 'Fase Pindah Tanam (Transplanting) Utama',
+            tips: [
+              'Lakukan pindah tanam bibit umur 40-45 hari pada sore hari agar tidak layu.',
+              'Segera lakukan penyulaman untuk tanaman yang mati dalam 7-10 hari setelah tanam.',
+              'Jaga kelembaban awal tanam dengan penyiraman rutin jika hujan sudah berhenti.'
+            ]
+          },
+          {
+            name: 'Mongso Sada (XII)', period: '12 Mei - 21 Jun', candra: 'Tirta sah saking sasana',
+            season: 'Memasuki Kemarau (Udara Dingin/Bediding)',
+            phase: 'Fase Pertumbuhan Awal & Pemupukan Susulan I',
+            tips: [
+              'Lakukan pemupukan susulan pertama dan pembumbunan (dangir) untuk memperkuat perakaran.',
+              'Pantau serangan hama awal (ulat tanah, kutu daun) dan penyakit layu.',
+              'Pastikan ketersediaan sumber air irigasi/tampungan untuk menghadapi puncak kemarau.'
+            ]
+          }
+        ];
+
+        if (mmdd >= 622 && mmdd <= 801) return list[0];
+        if (mmdd >= 802 && mmdd <= 824) return list[1];
+        if (mmdd >= 825 && mmdd <= 917) return list[2];
+        if (mmdd >= 918 && mmdd <= 1012) return list[3];
+        if (mmdd >= 1013 && mmdd <= 1108) return list[4];
+        if (mmdd >= 1109 && mmdd <= 1221) return list[5];
+        if (mmdd >= 1222 || mmdd <= 202) return list[6];
+        if (mmdd >= 203 && mmdd <= 229) return list[7];
+        if (mmdd >= 301 && mmdd <= 325) return list[8];
+        if (mmdd >= 326 && mmdd <= 418) return list[9];
+        if (mmdd >= 419 && mmdd <= 511) return list[10];
+        return list[11];
+      }
+
+      function renderPranotoMongso(date) {
+        var pm = getPranotoMongso(date);
+        var elPeriod = document.getElementById('pmPeriodBadge');
+        var elTitle = document.getElementById('pmTitle');
+        var elCandra = document.getElementById('pmCandra');
+        var elSeason = document.getElementById('pmSeasonChar');
+        var elPhase = document.getElementById('pmTobaccoPhase');
+        var elTips = document.getElementById('pmTobaccoTips');
+
+        if (elPeriod) elPeriod.textContent = pm.period;
+        if (elTitle) elTitle.textContent = pm.name;
+        if (elCandra) elCandra.textContent = '"' + pm.candra + '"';
+        if (elSeason) elSeason.textContent = pm.season;
+        if (elPhase) elPhase.textContent = pm.phase;
+
+        if (elTips) {
+          elTips.innerHTML = pm.tips.map(function(tip) {
+            return '<li class="flex items-start gap-2">' +
+              '<i class="fa-solid fa-circle-check text-emerald-500 mt-0.5 flex-none"></i>' +
+              '<span>' + escapeHTML(tip) + '</span>' +
+            '</li>';
+          }).join('');
+        }
+      }
+
+function renderJadwalTanam(date) {
+        var m = date.getMonth() + 1;
+        var day = date.getDate();
+        var w = day <= 7 ? 1 : (day <= 14 ? 2 : (day <= 21 ? 3 : 4));
+        var romawi = ['', 'I', 'II', 'III', 'IV'];
+        var blnNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+        var currentIdx = m * 4 + w;
+        var periodBadge = document.getElementById('tanamCurrentPeriodBadge');
+        if (periodBadge) {
+          periodBadge.textContent = 'Periode Kini: ' + blnNames[m] + ' ' + romawi[w];
+        }
+
+        var rawJadwal = (localStore.jadwalTanam && localStore.jadwalTanam.length)
+          ? localStore.jadwalTanam.filter(function(x) { return x.Status_Aktif !== 'TIDAK AKTIF'; })
+          : [
+              { Klaster: 'Gunung', Kemloko_Awal: 'Maret IV', Kemloko_Akhir: 'April II', Kenongo_Awal: '', Kenongo_Akhir: '' },
+              { Klaster: 'Tegal', Kemloko_Awal: 'April I', Kemloko_Akhir: 'April III', Kenongo_Awal: '', Kenongo_Akhir: '' },
+              { Klaster: 'Toalo', Kemloko_Awal: 'Maret III', Kemloko_Akhir: 'April II', Kenongo_Awal: 'Maret II', Kenongo_Akhir: 'April I' },
+              { Klaster: 'Sawah', Kemloko_Awal: 'Mei I', Kemloko_Akhir: 'Mei IV', Kenongo_Awal: 'Mei I', Kenongo_Akhir: 'Mei IV' }
+            ];
+
+        var jadwal = rawJadwal.map(function(r) {
+          var kStart = parsePeriodeToIdx(r.Kemloko_Awal);
+          var kEnd = parsePeriodeToIdx(r.Kemloko_Akhir);
+          var pStart = parsePeriodeToIdx(r.Kenongo_Awal);
+          var pEnd = parsePeriodeToIdx(r.Kenongo_Akhir);
+          return {
+            klaster: r.Klaster,
+            kemloko: (kStart && kEnd) ? { label: r.Kemloko_Awal + ' - ' + r.Kemloko_Akhir, start: kStart, end: kEnd, startLabel: r.Kemloko_Awal, endLabel: r.Kemloko_Akhir } : null,
+            kenongo: (pStart && pEnd) ? { label: r.Kenongo_Awal + ' - ' + r.Kenongo_Akhir, start: pStart, end: pEnd, startLabel: r.Kenongo_Awal, endLabel: r.Kenongo_Akhir } : null
+          };
+        });
+
+        var alerts = [];
+        var tbody = document.getElementById('tbodyJadwalTanam');
+        if (tbody) tbody.innerHTML = '';
+
+        function checkRange(klaster, varName, range) {
+          if (!range) return null;
+          if (currentIdx === range.end) {
+            alerts.push({
+              type: 'warning',
+              text: 'PERINGATAN AKHIR TANAM: Klaster ' + klaster + ' (' + varName + ') memasuki batas akhir periode tanam (' + range.endLabel + '). Segera selesaikan penanaman!'
+            });
+            return 'akhir';
+          }
+          if (currentIdx === range.start) {
+            alerts.push({
+              type: 'start',
+              text: 'MULAI PERIODE TANAM: Klaster ' + klaster + ' (' + varName + ') sudah masuk awal periode tanam (' + range.startLabel + ' s/d ' + range.endLabel + ').'
+            });
+            return 'aktif';
+          }
+          if (currentIdx > range.start && currentIdx < range.end) {
+            alerts.push({
+              type: 'active',
+              text: 'MASA TANAM AKTIF: Klaster ' + klaster + ' (' + varName + ') sedang dalam periode tanam (batas akhir ' + range.endLabel + ').'
+            });
+            return 'aktif';
+          }
+          return null;
+        }
+
+        jadwal.forEach(function(item) {
+          var stK = checkRange(item.klaster, 'Varietas Kemloko', item.kemloko);
+          var stP = checkRange(item.klaster, 'Kenongo Pakis/Pelus', item.kenongo);
+
+          var statusHtml = '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">Di Luar Jadwal</span>';
+          if (stK === 'akhir' || stP === 'akhir') {
+            statusHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">Batas Akhir Tanam</span>';
+          } else if (stK === 'aktif' || stP === 'aktif') {
+            statusHtml = '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">Periode Tanam</span>';
+          }
+
+          if (tbody) {
+            tbody.innerHTML +=
+              '<tr class="hover:bg-slate-50">' +
+                '<td class="p-2.5 font-bold text-slate-800">' + escapeHTML(item.klaster) + '</td>' +
+                '<td class="p-2.5 font-medium text-emerald-700">' + escapeHTML(item.kemloko.label) + '</td>' +
+                '<td class="p-2.5 ' + (item.kenongo ? 'font-medium text-blue-700' : 'text-rose-500 italic font-semibold') + '">' +
+                  (item.kenongo ? escapeHTML(item.kenongo.label) : 'Tidak Diizinkan') +
+                '</td>' +
+                '<td class="p-2.5 text-center">' + statusHtml + '</td>' +
+              '</tr>';
+          }
+        });
+
+        var alertBox = document.getElementById('berandaTanamAlerts');
+        if (alertBox) {
+          if (alerts.length === 0) {
+            alertBox.innerHTML =
+              '<div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center gap-2.5">' +
+                '<i class="fa-solid fa-circle-info text-slate-400"></i>' +
+                '<span>Saat ini (<strong>' + blnNames[m] + ' ' + romawi[w] + '</strong>) belum masuk periode tanam aktif. Jadwal tanam dimulai pada <strong>Maret II</strong> (Klaster Toalo - Kenongo Pakis/Pelus) dan <strong>Maret III</strong> (Kemloko).</span>' +
+              '</div>';
+          } else {
+            alertBox.innerHTML = alerts.map(function(a) {
+              var cls = a.type === 'warning'
+                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900';
+              var ico = a.type === 'warning'
+                ? 'fa-clock text-amber-600'
+                : 'fa-seedling text-emerald-600';
+              return '<div class="p-3 rounded-xl border text-xs font-medium flex items-start gap-2.5 ' + cls + '">' +
+                '<i class="fa-solid ' + ico + ' mt-0.5 flex-none"></i>' +
+                '<span>' + escapeHTML(a.text) + '</span>' +
+              '</div>';
+            }).join('');
+          }
+        }
+      }
+
+     function parsePeriodeToIdx(str) {
+        if (!str) return 0;
+        var parts = String(str).trim().toUpperCase().split(/\s+/);
+        if (parts.length < 2) return 0;
+        var blnMap = { JANUARI: 1, JAN: 1, FEBRUARI: 2, FEB: 2, MARET: 3, MAR: 3, APRIL: 4, APR: 4, MEI: 5, JUNI: 6, JUN: 6, JULI: 7, JUL: 7, AGUSTUS: 8, AGU: 8, SEPTEMBER: 9, SEP: 9, OKTOBER: 10, OKT: 10, NOVEMBER: 11, NOV: 11, DESEMBER: 12, DES: 12 };
+        var romMap = { I: 1, II: 2, III: 3, IV: 4, '1': 1, '2': 2, '3': 3, '4': 4 };
+        var m = blnMap[parts[0]] || 0;
+        var w = romMap[parts[1]] || 0;
+        return (m && w) ? (m * 4 + w) : 0;
+      }
+
+      function renderInfoTambahanBeranda() {
+        var box = document.getElementById('berandaInfoTambahanContainer');
+        if (!box) return;
+        var activeInfos = (localStore.infoTambahan || []).filter(function(i) { return i.Status_Aktif === 'AKTIF'; });
+        if (!activeInfos.length) {
+          box.classList.add('hidden');
+          box.innerHTML = '';
+          return;
+        }
+        box.classList.remove('hidden');
+        box.innerHTML = activeInfos.map(function(info) {
+          var isWarn = info.Kategori === 'HIMBAUAN' || info.Kategori === 'ATURAN KONDISIONAL';
+          var cls = isWarn ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-blue-50 border-blue-200 text-blue-950';
+          var badgeCls = isWarn ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-900';
+          var ico = isWarn ? 'fa-bullhorn text-amber-600' : 'fa-circle-info text-blue-600';
+          return '<div class="rounded-2xl border p-4 shadow-xs flex items-start gap-3 ' + cls + '">' +
+            '<div class="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center flex-none mt-0.5 shadow-xs"><i class="fa-solid ' + ico + '"></i></div>' +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="flex flex-wrap items-center gap-2 mb-1">' +
+                '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ' + badgeCls + '">' + escapeHTML(info.Kategori) + '</span>' +
+                '<h4 class="text-xs sm:text-sm font-bold">' + escapeHTML(info.Judul) + '</h4>' +
+              '</div>' +
+              '<p class="text-xs whitespace-pre-line opacity-90 leading-relaxed">' + escapeHTML(info.Isi_Informasi) + '</p>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+
+      function renderBerandaConfig() {
+        var tbJ = document.getElementById('tbodyAdminJadwalTanam');
+        var tbI = document.getElementById('tbodyAdminInfoTambahan');
+
+        if (tbJ) {
+          tbJ.innerHTML = '';
+          var listJ = localStore.jadwalTanam || [];
+          if (!listJ.length) {
+            tbJ.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada data di sheet JadwalTanam. Jalankan setupDatabase() atau tambah klaster.</td></tr>';
+          } else {
+            listJ.forEach(function(j) {
+              tbJ.innerHTML +=
+                '<tr class="hover:bg-slate-50 border-b border-slate-100">' +
+                  '<td class="p-2.5 font-bold text-slate-800">' + escapeHTML(j.Klaster) + '</td>' +
+                  '<td class="p-2.5 text-emerald-700 font-medium">' + escapeHTML(j.Kemloko_Awal) + ' - ' + escapeHTML(j.Kemloko_Akhir) + '</td>' +
+                  '<td class="p-2.5 ' + (j.Kenongo_Awal ? 'text-blue-700 font-medium' : 'text-rose-500 italic') + '">' + (j.Kenongo_Awal ? escapeHTML(j.Kenongo_Awal) + ' - ' + escapeHTML(j.Kenongo_Akhir) : 'Tidak Diizinkan') + '</td>' +
+                  '<td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ' + (j.Status_Aktif === 'AKTIF' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') + '">' + escapeHTML(j.Status_Aktif) + '</span></td>' +
+                  '<td class="p-2.5 text-center"><button type="button" onclick="window.SIPETA.editJadwalTanam(\'' + j.ID_Jadwal + '\')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fa-solid fa-pen"></i></button></td>' +
+                '</tr>';
+            });
+          }
+        }
+
+        if (tbI) {
+          tbI.innerHTML = '';
+          var listI = localStore.infoTambahan || [];
+          if (!listI.length) {
+            tbI.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada informasi tambahan. Klik "Tambah Informasi" untuk membuat pengumuman.</td></tr>';
+          } else {
+            listI.forEach(function(inf) {
+              tbI.innerHTML +=
+                '<tr class="hover:bg-slate-50 border-b border-slate-100">' +
+                  '<td class="p-2.5"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">' + escapeHTML(inf.Kategori) + '</span></td>' +
+                  '<td class="p-2.5"><div class="font-bold text-slate-800">' + escapeHTML(inf.Judul) + '</div><div class="text-[11px] text-slate-500 line-clamp-2">' + escapeHTML(inf.Isi_Informasi) + '</div></td>' +
+                  '<td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ' + (inf.Status_Aktif === 'AKTIF' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') + '">' + escapeHTML(inf.Status_Aktif) + '</span></td>' +
+                  '<td class="p-2.5 text-center"><button type="button" onclick="window.SIPETA.editInfoTambahan(\'' + inf.ID_Info + '\')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><i class="fa-solid fa-pen"></i></button></td>' +
+                '</tr>';
+            });
+          }
+        }
+      }
+
+      function openJadwalModal() {
+        document.getElementById('formJadwalTanam').reset();
+        document.getElementById('jdwId').value = '';
+        document.getElementById('modalJadwalTitle').innerText = 'Tambah Jadwal Tanam Klaster';
+        document.getElementById('modalJadwalTanam').classList.remove('hidden');
+      }
+
+      function editJadwalTanam(id) {
+        var j = (localStore.jadwalTanam || []).find(function(x) { return x.ID_Jadwal === id; });
+        if (!j) return;
+        document.getElementById('jdwId').value = j.ID_Jadwal;
+        document.getElementById('jdwKlaster').value = j.Klaster || '';
+        document.getElementById('jdwKemlokoAwal').value = j.Kemloko_Awal || '';
+        document.getElementById('jdwKemlokoAkhir').value = j.Kemloko_Akhir || '';
+        document.getElementById('jdwKenongoAwal').value = j.Kenongo_Awal || '';
+        document.getElementById('jdwKenongoAkhir').value = j.Kenongo_Akhir || '';
+        document.getElementById('jdwStatus').value = j.Status_Aktif || 'AKTIF';
+        document.getElementById('modalJadwalTitle').innerText = 'Edit Jadwal Tanam: ' + j.Klaster;
+        document.getElementById('modalJadwalTanam').classList.remove('hidden');
+      }
+
+      function saveJadwalTanam() {
+        var payload = {
+          id: document.getElementById('jdwId').value,
+          klaster: document.getElementById('jdwKlaster').value.trim(),
+          kemlokoAwal: document.getElementById('jdwKemlokoAwal').value.trim(),
+          kemlokoAkhir: document.getElementById('jdwKemlokoAkhir').value.trim(),
+          kenongoAwal: document.getElementById('jdwKenongoAwal').value.trim(),
+          kenongoAkhir: document.getElementById('jdwKenongoAkhir').value.trim(),
+          status: document.getElementById('jdwStatus').value
+        };
+        var btn = document.getElementById('btnSaveJadwal');
+        btn.disabled = true; btn.innerText = 'Menyimpan...';
+        gasRun('saveJadwalTanam', sessionToken, payload).then(function(res) {
+          btn.disabled = false; btn.innerText = 'Simpan Jadwal';
+          if (res.sessionExpired) { handleSessionExpired(); return; }
+          if (res.success) {
+            showToast('Jadwal Tanam berhasil diperbarui.', 'success');
+            closeModal('modalJadwalTanam');
+            loadAllData();
+          } else showToast(res.message, 'error');
+        }).catch(function(e) { btn.disabled = false; btn.innerText = 'Simpan Jadwal'; showToast(e.message, 'error'); });
+      }
+
+      function openInfoModal() {
+        document.getElementById('formInfoTambahan').reset();
+        document.getElementById('infoId').value = '';
+        document.getElementById('modalInfoTitle').innerText = 'Tambah Informasi Tambahan';
+        document.getElementById('modalInfoTambahan').classList.remove('hidden');
+      }
+
+      function editInfoTambahan(id) {
+        var inf = (localStore.infoTambahan || []).find(function(x) { return x.ID_Info === id; });
+        if (!inf) return;
+        document.getElementById('infoId').value = inf.ID_Info;
+        document.getElementById('infoKategori').value = inf.Kategori || 'PENGUMUMAN';
+        document.getElementById('infoJudul').value = inf.Judul || '';
+        document.getElementById('infoIsi').value = inf.Isi_Informasi || '';
+        document.getElementById('infoStatus').value = inf.Status_Aktif || 'AKTIF';
+        document.getElementById('modalInfoTitle').innerText = 'Edit Informasi Tambahan';
+        document.getElementById('modalInfoTambahan').classList.remove('hidden');
+      }
+
+      function saveInfoTambahan() {
+        var payload = {
+          id: document.getElementById('infoId').value,
+          kategori: document.getElementById('infoKategori').value,
+          judul: document.getElementById('infoJudul').value.trim(),
+          isi: document.getElementById('infoIsi').value.trim(),
+          status: document.getElementById('infoStatus').value
+        };
+        var btn = document.getElementById('btnSaveInfo');
+        btn.disabled = true; btn.innerText = 'Menyimpan...';
+        gasRun('saveInfoTambahan', sessionToken, payload).then(function(res) {
+          btn.disabled = false; btn.innerText = 'Simpan Informasi';
+          if (res.sessionExpired) { handleSessionExpired(); return; }
+          if (res.success) {
+            showToast('Informasi Tambahan berhasil disimpan.', 'success');
+            closeModal('modalInfoTambahan');
+            loadAllData();
+          } else showToast(res.message, 'error');
+        }).catch(function(e) { btn.disabled = false; btn.innerText = 'Simpan Informasi'; showToast(e.message, 'error'); });
+      } 
+
       // EXPOSE FUNGSI GLOBAL KE WINDOW UNTUK EVENT HANDLER HTML
       window.SIPETA = {
+        loadBerandaWeather: loadBerandaWeather,
+        openJadwalModal: openJadwalModal,
+        editJadwalTanam: editJadwalTanam,
+        saveJadwalTanam: saveJadwalTanam,
+        openInfoModal: openInfoModal,
+        editInfoTambahan: editInfoTambahan,
+        saveInfoTambahan: saveInfoTambahan,
         openUserProfileModal: openUserProfileModal,
         openNameCard: openNameCard,
         renderPembibitan: renderPembibitan,
