@@ -1,111 +1,129 @@
+// api.gs — Router POST untuk jembatan PWA (gas-bridge.js) ke Google Apps Script
+// SIPETA MITRA v4.8.4 | Pastikan file ini berada di project Apps Script yang sama dengan Code.gs
+
 /**
- * Api.gs — PWA bridge router. Add as a NEW file in the Apps Script project.
- *
- * The PWA (hosted on GitHub Pages) cannot use google.script.run, so gas-bridge.js
- * sends  POST {fn, args, id, token}  to the web app /exec URL and this router
- * calls the matching server function.
- *
- * Deployment must be:  Execute as = Me,  Who has access = Anyone.
- * After every change: Deploy > Manage deployments > Edit > New version.
- * (The /exec URL stays the same.)
- *
- * SECURITY: anyone who knows the URL can call the allowed functions. Only list
- * functions that are safe to expose. A static front-end cannot keep secrets,
- * so PWA_TOKEN below is a speed bump, not authentication.
+ * Daftar fungsi backend yang diizinkan dipanggil oleh PWA.
+ * Fungsi internal (setupDatabase, hashPassword, uploadBase64ToDrive, dll.) sengaja tidak dimasukkan demi keamanan.
  */
+function getApiHandlers_() {
+  return {
+    // Autentikasi & Sesi
+    loginUser: loginUser,
+    destroySession: destroySession,
 
-// 1) Functions the PWA may call (copy them from the analyzer report).
-//    They must be top-level `function name() {}` declarations: `const name = () => {}`
-//    is not reachable through globalThis in the Apps Script V8 runtime.
-const PWA_ALLOWED_FUNCTIONS = [
-  'loginUser', 'destroySession', 'getAppData', 'saveKoordinator', 'savePetani', 'saveLahan',
-  'toggleStatusEntity', 'saveUser', 'saveTrader', 'savePenugasanPic',
-  'saveVerifikasiLahan',
-];
+    // Read Data Utama
+    getAppData: getAppData,
 
-// Hanya fungsi yang TIDAK memakai LockService sendiri (sudah dicek terhadap Code.gs):
-// toggleStatusEntity, saveUser, saveTrader, savePenugasanPic.
-// JANGAN menambahkan saveKoordinator, savePetani, saveLahan, saveVerifikasiLahan:
-// keempatnya sudah mengunci sendiri, dan kunci ganda membuatnya menunggu lalu gagal
-// dengan pesan "Sistem sibuk".
-const PWA_SERIALIZED_FUNCTIONS = [
-  'toggleStatusEntity', 'saveUser', 'saveTrader', 'savePenugasanPic',
-];
+    // Registrasi (Koordinator, Petani, Lahan) & Ubah Status
+    saveKoordinator: saveKoordinator,
+    savePetani: savePetani,
+    saveLahan: saveLahan,
+    toggleStatusEntity: toggleStatusEntity,
 
-// Fungsi tulis: hasil sukses disimpan 6 jam menurut ID permintaan, supaya
-// pengiriman ulang dari antrean offline tidak menulis data dua kali.
-const PWA_WRITE_FUNCTIONS = [
-  'savePetani', 'saveLahan', 'saveKoordinator', 'toggleStatusEntity',
-  'saveUser', 'saveTrader', 'savePenugasanPic', 'saveVerifikasiLahan',
-];
+    // Verifikasi Lahan
+    saveVerifikasiLahan: saveVerifikasiLahan,
 
-// 2) Optional shared token. Set Script property PWA_TOKEN (Project Settings >
-//    Script properties) and put the same value in pwa-config.js. Leave the
-//    property unset to disable the check.
-function pwaTokenOk_(token) {
-  const expected = PropertiesService.getScriptProperties().getProperty('PWA_TOKEN');
-  return !expected || expected === token;
+    // Stok Benih, Serah Terima & Distribusi Benih
+    saveStokOpname: saveStokOpname,
+    saveSerahTerima: saveSerahTerima,
+    saveDistribusiBenih: saveDistribusiBenih,
+
+    // GAP (Sebar Benih & Pembibitan)
+    saveSebarBenih: saveSebarBenih,
+    savePembibitan: savePembibitan,
+
+    // Profil Pengguna
+    updateUserProfilePhoto: updateUserProfilePhoto,
+
+    // Administrator (Pengguna, Trader, Penugasan PIC)
+    saveUser: saveUser,
+    saveTrader: saveTrader,
+    savePenugasanPic: savePenugasanPic
+  };
 }
 
 /**
- * If the project already has a doPost(e), rename it (e.g. originalDoPost_) and
- * call it from the fallback branch below. If the body is not a PWA call, keep
- * the old behaviour.
+ * Fungsi yang tidak perlu deduplikasi (read / auth).
+ */
+var NON_DEDUP_FUNCTIONS_ = {
+  loginUser: true,
+  destroySession: true,
+  getAppData: true
+};
+
+/**
+ * Helper output JSON standar untuk gas-bridge.js
+ */
+function jsonOutput_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Entry point HTTP POST dari gas-bridge.js
+ * Payload JSON: { fn: string, args: Array, id: string, token: string }
  */
 function doPost(e) {
-  let req;
   try {
-    req = JSON.parse(e.postData.contents);
-  } catch (err) {
-    return pwaJson_({ ok: false, error: 'Request body is not valid JSON' });
-  }
-  if (!req || typeof req.fn !== 'string') {
-    return pwaJson_({ ok: false, error: 'Missing "fn"' });
-  }
-  return pwaJson_(pwaDispatch_(req));
-}
-
-function pwaDispatch_(req) {
-  if (!pwaTokenOk_(req.token)) return { ok: false, error: 'Invalid token' };
-  if (PWA_ALLOWED_FUNCTIONS.indexOf(req.fn) === -1) {
-    return { ok: false, error: 'Function not allowed: ' + req.fn };
-  }
-
-  // Idempotency: the client retries queued writes with the SAME id. If this id
-  // already succeeded recently, return the stored answer instead of running
-  // the write twice. CacheService keeps entries at most 6 hours; for longer
-  // offline periods also dedupe inside the write function itself (store the id
-  // in a column and skip if present).
-  const cache = CacheService.getScriptCache();
-  const cacheKey = (req.id && PWA_WRITE_FUNCTIONS.indexOf(req.fn) !== -1) ? 'pwa:' + req.id : null;
-  if (cacheKey) {
-    const hit = cache.get(cacheKey);
-    if (hit) return JSON.parse(hit);
-  }
-
-  const lock = LockService.getScriptLock();
-  const needsLock = PWA_SERIALIZED_FUNCTIONS.indexOf(req.fn) !== -1;
-  try {
-    if (needsLock) lock.waitLock(20000); // replayed queues must not interleave
-    globalThis.PWA_REQUEST_ID = req.id || null; // lets a write function dedupe by id (e.g. store it in a column)
-    const fn = globalThis[req.fn];
-    if (typeof fn !== 'function') return { ok: false, error: 'Unknown function: ' + req.fn };
-    const result = fn.apply(null, Array.isArray(req.args) ? req.args : []);
-    const out = { ok: true, result: result === undefined ? null : result };
-    // Simpan hanya yang berhasil. Penolakan (success:false) tidak disimpan agar
-    // "Coba lagi" dari antrean benar-benar dijalankan ulang.
-    if (cacheKey && !(result && result.success === false)) {
-      try { cache.put(cacheKey, JSON.stringify(out), 21600); } catch (e) { /* value too large: skip */ }
+    if (!e || !e.postData || !e.postData.contents) {
+      return jsonOutput_({ ok: false, error: 'Request body kosong.' });
     }
-    return out;
-  } catch (err) {
-    return { ok: false, error: String((err && err.message) || err) };
-  } finally {
-    if (needsLock) { try { lock.releaseLock(); } catch (e) { /* not held */ } }
-  }
-}
 
-function pwaJson_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+    var req;
+    try {
+      req = JSON.parse(e.postData.contents);
+    } catch (parseErr) {
+      return jsonOutput_({ ok: false, error: 'Format JSON tidak valid.' });
+    }
+
+    // Validasi opsional PWA_TOKEN (jika diatur di Project Settings > Script Properties)
+    var expectedToken = PropertiesService.getScriptProperties().getProperty('PWA_TOKEN');
+    if (expectedToken && req.token !== expectedToken) {
+      return jsonOutput_({ ok: false, error: 'Unauthorized: token PWA tidak cocok.' });
+    }
+
+    var fnName = req.fn;
+    var args = Array.isArray(req.args) ? req.args : [];
+    var reqId = req.id ? String(req.id) : '';
+
+    var handlers = getApiHandlers_();
+    var handler = handlers[fnName];
+
+    if (typeof handler !== 'function') {
+      return jsonOutput_({ ok: false, error: 'Fungsi tidak diizinkan atau tidak ditemukan: ' + fnName });
+    }
+
+    // Deduplikasi untuk operasi tulis (mencegah data ganda saat outbox offline replay)
+    var cache = CacheService.getScriptCache();
+    var dedupKey = (reqId && !NON_DEDUP_FUNCTIONS_[fnName]) ? ('PWA_DEDUP_' + reqId) : '';
+
+    if (dedupKey) {
+      var cachedRes = cache.get(dedupKey);
+      if (cachedRes) {
+        try {
+          return jsonOutput_({ ok: true, result: JSON.parse(cachedRes), deduplicated: true });
+        } catch (ignore) {}
+      }
+    }
+
+    // Eksekusi fungsi target di Code.gs
+    var result = handler.apply(null, args);
+
+    // Simpan hasil sukses ke cache deduplikasi (maksimal 6 jam / 21600 detik)
+    if (dedupKey && result && result.success === true) {
+      try {
+        cache.put(dedupKey, JSON.stringify(result), 21600);
+      } catch (cacheErr) {
+        // Abaikan jika payload hasil terlalu besar untuk CacheService (>100KB)
+      }
+    }
+
+    return jsonOutput_({ ok: true, result: result });
+  } catch (err) {
+    return jsonOutput_({
+      ok: false,
+      error: (err && err.message) ? err.message : String(err)
+    });
+  }
 }
